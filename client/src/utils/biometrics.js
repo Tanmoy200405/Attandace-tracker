@@ -62,8 +62,9 @@ export const extractFaceDescriptor = async (videoOrCanvas) => {
   }
 };
 
-// 3. Compare two face descriptors using Euclidean Distance with strict threshold
-export const compareFaceDescriptors = (descA, descB, threshold = 0.55) => {
+// 3. Compare two face descriptors using Euclidean Distance
+// Standard face-api.js threshold: <= 0.62 represents the same person under varied lighting/angles
+export const compareFaceDescriptors = (descA, descB, threshold = 0.62) => {
   if (!descA || !descB || descA.length === 0 || descB.length === 0) {
     return { score: 0, distance: 999, isMatch: false, valueOf() { return 0; }, toString() { return '0'; } };
   }
@@ -72,17 +73,17 @@ export const compareFaceDescriptors = (descA, descB, threshold = 0.55) => {
     const arrA = new Float32Array(descA);
     const arrB = new Float32Array(descB);
     
-    // Calculate Euclidean distance (face-api standard: <= 0.55 is the same person)
+    // Calculate Euclidean distance (face-api standard: <= 0.62 is the same person)
     const distance = faceapi.euclideanDistance(arrA, arrB);
     const isMatch = distance <= threshold;
     
     let score;
     if (isMatch) {
-      // Confident match: mapped between 75% and 99.5%
-      score = 100 - (distance / threshold) * 25;
+      // High-confidence match scaling
+      score = Math.max(65.0, 100 - (distance / threshold) * 35);
     } else {
-      // Different person: drops sharply into 0% - 50%
-      score = Math.max(0, 50 - ((distance - threshold) / 0.5) * 50);
+      // Mismatch scaling
+      score = Math.max(0, 50 - ((distance - threshold) / 0.4) * 50);
     }
     
     score = +score.toFixed(1);
