@@ -7,7 +7,7 @@ export const AuthProvider = ({ children }) => {
   const [owner, setOwner] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('biotrack_token'));
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState(localStorage.getItem('biotrack_role') || 'admin');
+  const [userRole, setUserRole] = useState(localStorage.getItem('biotrack_role') || 'staff');
 
   useEffect(() => {
     const fetchMe = async () => {

@@ -23,8 +23,13 @@ export const Sidebar = ({ currentTab, setTab, isOpen }) => {
     { id: 'settings', label: 'Shift Settings', icon: Settings },
   ];
 
-  // Staff members can only access Biometric Kiosk
-  const navItems = isStaff ? allNavItems.filter((i) => i.id === 'kiosk') : allNavItems;
+  // Staff members see Biometric and Admin Login
+  const navItems = isStaff 
+    ? [
+        { id: 'kiosk', label: 'Biometric Kiosk', icon: Camera, highlight: true },
+        { id: 'admin-login', label: 'Admin Login', icon: Settings },
+      ]
+    : allNavItems;
 
   return (
     <aside
