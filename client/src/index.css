@@ -327,6 +327,8 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--bg-surface);
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
 }
 
 .custom-table {
@@ -742,6 +744,10 @@ h1, h2, h3, h4, h5, h6 {
     max-width: 100%;
     max-height: 95vh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .hide-on-mobile {
+    display: none !important;
   }
 
   /* Stat cards stack */

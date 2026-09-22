@@ -89,6 +89,89 @@ export const getAttendanceByDate = async (req, res) => {
   }
 };
 
+// @desc    Get 30-day attendance summary for Dashboard overview
+// @route   GET /api/attendance/summary/30days
+export const get30DaySummary = async (req, res) => {
+  try {
+    const allStaff = await Staff.find({ status: 'Active' });
+    const totalStaff = allStaff.length;
+
+    // Build last-30-days date range
+    const today = new Date();
+    const dates = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      dates.push(d.toISOString().split('T')[0]);
+    }
+
+    // Fetch all attendance records for the last 30 days
+    const records = await Attendance.find({ date: { $in: dates } });
+
+    // Aggregate stats across all 30 days
+    let present = 0, late = 0, halfDay = 0, absent = 0, leave = 0, unmarked = 0;
+    let totalWorkHours = 0;
+
+    records.forEach((r) => {
+      if (r.status === 'Present') present++;
+      else if (r.status === 'Late') late++;
+      else if (r.status === 'Half Day') halfDay++;
+      else if (r.status === 'Absent') absent++;
+      else if (r.status === 'Leave') leave++;
+      totalWorkHours += r.workHours || 0;
+    });
+
+    // Possible working slots = totalStaff × 30 days
+    const possibleSlots = totalStaff * 30;
+    const presentTotal = present + late + halfDay;
+    const attendanceRate = possibleSlots > 0
+      ? Math.round((presentTotal / possibleSlots) * 100)
+      : 0;
+
+    // Today's snapshot for the live roster
+    const todayStr = today.toISOString().split('T')[0];
+    const todayRecords = await Attendance.find({ date: todayStr });
+    const todayMap = new Map();
+    todayRecords.forEach((r) => todayMap.set(r.staffId.toString(), r));
+    todayRecords.forEach((r) => {
+      if (r.status === 'Unmarked' || !r.status) unmarked++;
+    });
+
+    const roster = allStaff.map((staff) => {
+      const record = todayMap.get(staff._id.toString());
+      return {
+        staff,
+        status: record ? record.status : 'Unmarked',
+        checkIn: record ? record.checkIn : null,
+        checkOut: record ? record.checkOut : null,
+        workHours: record ? record.workHours : 0,
+        verificationMethod: record ? record.verificationMethod : null,
+        confidenceScore: record ? record.confidenceScore : null,
+        notes: record ? record.notes : '',
+      };
+    });
+
+    res.json({
+      success: true,
+      period: '30 days',
+      summary: {
+        totalStaff,
+        present,
+        late,
+        halfDay,
+        absent,
+        leave,
+        unmarked: possibleSlots - records.length,
+        attendanceRate,
+        totalWorkHours: +totalWorkHours.toFixed(1),
+      },
+      todayRoster: roster,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Biometric Verify & Mark Attendance (Face + Fingerprint)
 // @route   POST /api/attendance/biometric-verify
 export const biometricVerifyAndMark = async (req, res) => {

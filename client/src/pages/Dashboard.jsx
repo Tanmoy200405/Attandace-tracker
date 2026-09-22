@@ -30,9 +30,9 @@ export const Dashboard = ({ setTab }) => {
     return `${d}/${m}/${y}`;
   };
 
-  const fetchTodayData = async () => {
+  const fetchDashboardData = async () => {
     try {
-      const res = await api.attendance.getByDate(todayStr);
+      const res = await api.attendance.get30DaySummary();
       if (res.success) {
         setData(res);
       }
@@ -44,9 +44,9 @@ export const Dashboard = ({ setTab }) => {
   };
 
   useEffect(() => {
-    fetchTodayData();
+    fetchDashboardData();
     // Auto-refresh every 30 seconds for live attendance monitoring
-    const interval = setInterval(fetchTodayData, 30000);
+    const interval = setInterval(fetchDashboardData, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -61,7 +61,7 @@ export const Dashboard = ({ setTab }) => {
     attendanceRate: 0,
   };
 
-  const roster = data?.data || [];
+  const roster = data?.todayRoster || [];
 
   return (
     <div className="page-wrapper">
@@ -146,24 +146,23 @@ export const Dashboard = ({ setTab }) => {
               <thead>
                 <tr>
                   <th>Staff Member</th>
-                  <th>Department</th>
                   <th>Status</th>
                   <th>Check-In</th>
-                  <th>Check-Out</th>
-                  <th>Biometric Verification</th>
-                  <th>Action</th>
+                  <th className="hide-on-mobile">Check-Out</th>
+                  <th className="hide-on-mobile">Verification</th>
+                  <th className="hide-on-mobile">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="7" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                       Loading today's attendance...
                     </td>
                   </tr>
                 ) : roster.length === 0 ? (
                   <tr>
-                    <td colSpan="7" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                       No staff members registered. Add staff members in Staff Directory.
                     </td>
                   </tr>
@@ -195,17 +194,13 @@ export const Dashboard = ({ setTab }) => {
                           <div>
                             <div style={{ fontWeight: 600, color: '#fff' }}>{row.staff.name}</div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                              {row.staff.employeeId} • {row.staff.role}
+                              {row.staff.employeeId}
                             </div>
                           </div>
                         </div>
                       </td>
 
-                      <td>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                          {row.staff.department}
-                        </span>
-                      </td>
+
 
                       <td>
                         <span className={`badge badge-${row.status.toLowerCase().replace(' ', '')}`}>
@@ -217,11 +212,11 @@ export const Dashboard = ({ setTab }) => {
                         {row.checkIn || '—'}
                       </td>
 
-                      <td style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.85rem' }}>
+                      <td className="hide-on-mobile" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.85rem' }}>
                         {row.checkOut || '—'}
                       </td>
 
-                      <td>
+                      <td className="hide-on-mobile">
                         {row.verificationMethod === 'biometric_dual' ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                             <span className="badge badge-biometric" title="Face & Fingerprint Verified">
@@ -242,7 +237,7 @@ export const Dashboard = ({ setTab }) => {
                         )}
                       </td>
 
-                      <td>
+                      <td className="hide-on-mobile">
                         <button
                           onClick={() => setSelectedItem(row)}
                           className="btn btn-secondary"
@@ -268,7 +263,7 @@ export const Dashboard = ({ setTab }) => {
           date={todayStr}
           isOpen={!!selectedItem}
           onClose={() => setSelectedItem(null)}
-          onSuccess={fetchTodayData}
+          onSuccess={fetchDashboardData}
         />
       )}
 

@@ -130,6 +130,12 @@ export const api = {
       });
       return handleResponse(res);
     },
+    get30DaySummary: async () => {
+      const res = await fetch(`${BASE_URL}/attendance/summary/30days`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(res);
+    },
     biometricVerify: async (payload) => {
       const res = await fetch(`${BASE_URL}/attendance/biometric-verify`, {
         method: 'POST',
