@@ -37,6 +37,7 @@ export const KioskPage = ({ onClose }) => {
   const [fpScanning, setFpScanning] = useState(false);
   const [fpVerified, setFpVerified] = useState(false);
   const [verificationResult, setVerificationResult] = useState(null);
+  const [verificationError, setVerificationError] = useState(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
 
@@ -117,6 +118,19 @@ export const KioskPage = ({ onClose }) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!selectedStaff) {
+      setVerificationError('Please select a staff member profile first.');
+      return;
+    }
+
+    if (!selectedStaff.biometrics?.faceEnrolled || !selectedStaff.biometrics?.faceDescriptor?.length) {
+      setVerificationError(`Staff member "${selectedStaff.name}" has not enrolled their face biometrics. Please enroll first in Staff Management.`);
+      playAudioChime('warning');
+      return;
+    }
+
+    setVerificationError(null);
+
     const reader = new FileReader();
     reader.onload = async (event) => {
       const photo = event.target?.result;
@@ -127,17 +141,31 @@ export const KioskPage = ({ onClose }) => {
       img.src = photo;
       await new Promise((res) => (img.onload = res));
 
-      let score = 96.5;
-      if (selectedStaff?.biometrics?.faceDescriptor?.length > 0) {
-        const liveDesc = await extractFaceDescriptor(img);
-        if (liveDesc) {
-          score = compareFaceDescriptors(liveDesc, selectedStaff.biometrics.faceDescriptor);
-        }
+      const liveDesc = await extractFaceDescriptor(img);
+      if (!liveDesc) {
+        setVerificationError('❌ No face detected in photo! Please take a clear photo facing the camera.');
+        setFaceScore(null);
+        setStep('face_mismatch');
+        playAudioChime('warning');
+        return;
       }
 
-      setFaceScore(score);
+      const matchResult = compareFaceDescriptors(liveDesc, selectedStaff.biometrics.faceDescriptor);
+      setFaceScore(matchResult.score);
+
+      if (!matchResult.isMatch) {
+        setVerificationError(
+          `❌ Face Mismatch! Similarity score is only ${matchResult.score}%. This face does NOT match ${selectedStaff.name}'s enrolled biometrics. Attendance denied.`
+        );
+        setStep('face_mismatch');
+        playAudioChime('warning');
+        return;
+      }
+
+      // Success: Face matches!
+      setVerificationError(null);
       setStep('fingerprint_pending');
-      playAudioChime('warning');
+      playAudioChime('success');
     };
     reader.readAsDataURL(file);
   };
@@ -151,79 +179,139 @@ export const KioskPage = ({ onClose }) => {
 
   // Face Scan Trigger
   const handleScanFace = async () => {
-    if (!selectedStaff) return;
+    if (!selectedStaff) {
+      setVerificationError('Please select a staff member first.');
+      return;
+    }
+
+    if (!selectedStaff.biometrics?.faceEnrolled || !selectedStaff.biometrics?.faceDescriptor?.length) {
+      setVerificationError(`Staff member "${selectedStaff.name}" has not enrolled their face biometrics yet. Please enroll first in Staff Management.`);
+      playAudioChime('warning');
+      return;
+    }
+
+    setVerificationError(null);
 
     let photo = null;
-    let score = 98.4;
+    let liveDescriptor = null;
 
     if (videoRef.current && cameraActive) {
       photo = captureFrameFromVideo(videoRef.current);
-      if (photo) {
-        setSnapshotPhoto(photo);
-        // Compare with enrolled descriptor if available
-        if (selectedStaff.biometrics?.faceDescriptor?.length > 0) {
-          const liveDescriptor = await extractFaceDescriptor(videoRef.current);
-          score = compareFaceDescriptors(liveDescriptor, selectedStaff.biometrics.faceDescriptor);
-          if (score < 60) score = +(88 + Math.random() * 10).toFixed(1); // normalized baseline
-        }
+      if (!photo) {
+        setVerificationError('Failed to capture video frame. Please ensure camera is active.');
+        playAudioChime('warning');
+        return;
       }
-    } else {
-      photo = selectedStaff.biometrics?.facePhoto || '';
       setSnapshotPhoto(photo);
+      liveDescriptor = await extractFaceDescriptor(videoRef.current);
+    } else if (snapshotPhoto) {
+      const img = new Image();
+      img.src = snapshotPhoto;
+      await new Promise((res) => (img.onload = res));
+      liveDescriptor = await extractFaceDescriptor(img);
+    } else {
+      // Prompt user to open camera or take photo
+      fileInputRef.current?.click();
+      return;
     }
 
-    setFaceScore(score);
+    if (!liveDescriptor) {
+      setVerificationError('❌ No face detected! Please look directly into the camera inside the guide oval.');
+      setFaceScore(null);
+      setStep('face_mismatch');
+      playAudioChime('warning');
+      return;
+    }
+
+    // Compare with enrolled descriptor using strict Euclidean threshold
+    const matchResult = compareFaceDescriptors(liveDescriptor, selectedStaff.biometrics.faceDescriptor);
+    setFaceScore(matchResult.score);
+
+    if (!matchResult.isMatch) {
+      // DIFFERENT PERSON OR WRONG STAFF
+      setVerificationError(
+        `❌ Face Mismatch! Similarity is ${matchResult.score}%. The detected face does not match ${selectedStaff.name}'s biometric profile. Attendance denied.`
+      );
+      setStep('face_mismatch');
+      playAudioChime('warning');
+      return;
+    }
+
+    // Face verified!
+    setVerificationError(null);
     setStep('fingerprint_pending');
-    playAudioChime('warning');
+    playAudioChime('success');
   };
 
   // Fingerprint Scan Trigger
   const handleScanFingerprint = async () => {
     if (!selectedStaff) return;
+
+    if (step !== 'fingerprint_pending') {
+      setVerificationError('Please complete Face Recognition first.');
+      playAudioChime('warning');
+      return;
+    }
+
+    if (!selectedStaff.biometrics?.fingerprintEnrolled || !selectedStaff.biometrics?.fingerprintCredentialId) {
+      setVerificationError(`Staff member "${selectedStaff.name}" has not enrolled their fingerprint biometric key.`);
+      playAudioChime('warning');
+      return;
+    }
+
     setFpScanning(true);
+    setVerificationError(null);
 
     try {
       // Call WebAuthn / Sensor verification
       const res = await verifyHardwareFingerprint(selectedStaff.biometrics?.fingerprintCredentialId);
       
-      setTimeout(async () => {
+      if (!res || !res.verified) {
         setFpScanning(false);
-        setFpVerified(true);
-        setStep('verified');
+        setVerificationError(`❌ ${res?.message || 'Fingerprint verification failed or cancelled. Attendance not recorded.'}`);
+        playAudioChime('warning');
+        return;
+      }
 
-        // Submit to API
-        try {
-          const apiRes = await api.attendance.biometricVerify({
-            staffId: selectedStaff._id,
-            faceScore: faceScore || 98.5,
-            fingerprintVerified: true,
-            snapshotUrl: snapshotPhoto || selectedStaff.biometrics?.facePhoto || '',
-            action: actionType,
-          });
+      setFpScanning(false);
+      setFpVerified(true);
+      setStep('verified');
 
-          setVerificationResult(apiRes);
-          playAudioChime('success');
+      // Submit to API
+      try {
+        const apiRes = await api.attendance.biometricVerify({
+          staffId: selectedStaff._id,
+          faceScore: faceScore || 85,
+          fingerprintVerified: true,
+          snapshotUrl: snapshotPhoto || '',
+          action: actionType,
+        });
 
-          // Celebrate with confetti
-          confetti({
-            particleCount: 80,
-            spread: 70,
-            origin: { y: 0.6 },
-          });
+        setVerificationResult(apiRes);
+        setVerificationError(null);
+        playAudioChime('success');
 
-          // Auto-reset after 4.5 seconds for next employee
-          setTimeout(() => {
-            resetKiosk();
-          }, 4500);
+        // Celebrate with confetti
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
 
-        } catch (apiErr) {
-          alert(`Attendance verification error: ${apiErr.message}`);
-        }
-      }, 1000);
+        // Auto-reset after 4.5 seconds for next employee
+        setTimeout(() => {
+          resetKiosk();
+        }, 4500);
+
+      } catch (apiErr) {
+        setVerificationError(`Attendance recording error: ${apiErr.message}`);
+        playAudioChime('warning');
+      }
 
     } catch (err) {
       setFpScanning(false);
-      alert(`Fingerprint verification error: ${err.message}`);
+      setVerificationError(`Fingerprint verification error: ${err.message}`);
+      playAudioChime('warning');
     }
   };
 
@@ -234,6 +322,7 @@ export const KioskPage = ({ onClose }) => {
     setFaceScore(null);
     setSnapshotPhoto(null);
     setVerificationResult(null);
+    setVerificationError(null);
   };
 
   return (
@@ -316,6 +405,43 @@ export const KioskPage = ({ onClose }) => {
           </button>
         </div>
       </div>
+
+      {/* Biometric Mismatch / Error Banner */}
+      {verificationError && (
+        <div
+          className="glass-card"
+          style={{
+            padding: '1rem 1.25rem',
+            marginBottom: '1.25rem',
+            border: '1px solid #ffffff',
+            background: 'rgba(255, 255, 255, 0.06)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <AlertTriangle size={20} color="#ffffff" style={{ flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#ffffff' }}>
+                Biometric Verification Rejected
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                {verificationError}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setVerificationError(null)}
+            className="btn btn-secondary"
+            style={{ fontSize: '0.72rem', padding: '0.35rem 0.65rem' }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Main Dual Verification Arena */}
       <div className="kiosk-grid">
@@ -413,32 +539,43 @@ export const KioskPage = ({ onClose }) => {
               </div>
             )}
 
-            {/* Target Face Overlay if step >= face_detected */}
-            {faceScore && (
+            {/* Target Face Overlay */}
+            {faceScore !== null && (
               <div
                 style={{
                   position: 'absolute',
                   bottom: '0.75rem',
                   left: '0.75rem',
                   right: '0.75rem',
-                  background: 'rgba(0, 0, 0, 0.85)',
+                  background: 'rgba(0, 0, 0, 0.9)',
                   backdropFilter: 'blur(10px)',
                   padding: '0.65rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-light)',
+                  border: `1px solid ${step === 'face_mismatch' ? '#888888' : '#ffffff'}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                  <CheckCircle2 size={18} color="#ffffff" />
+                  {step === 'face_mismatch' ? (
+                    <AlertTriangle size={18} color="#888888" />
+                  ) : (
+                    <CheckCircle2 size={18} color="#ffffff" />
+                  )}
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>
-                    {selectedStaff?.name}
+                    {step === 'face_mismatch' ? 'Mismatch' : selectedStaff?.name}
                   </span>
                 </div>
-                <span style={{ fontSize: '0.8rem', color: '#ffffff', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
-                  {faceScore}% Match
+                <span
+                  style={{
+                    fontSize: '0.8rem',
+                    color: step === 'face_mismatch' ? '#aaaaaa' : '#ffffff',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontWeight: 700,
+                  }}
+                >
+                  {faceScore}% {step === 'face_mismatch' ? '(DENIED)' : 'Match'}
                 </span>
               </div>
             )}

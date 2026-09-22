@@ -62,27 +62,41 @@ export const extractFaceDescriptor = async (videoOrCanvas) => {
   }
 };
 
-// 3. Compare two face descriptors using Euclidean Distance
-export const compareFaceDescriptors = (descA, descB) => {
-  if (!descA || !descB || descA.length === 0 || descB.length === 0) return 0;
+// 3. Compare two face descriptors using Euclidean Distance with strict threshold
+export const compareFaceDescriptors = (descA, descB, threshold = 0.55) => {
+  if (!descA || !descB || descA.length === 0 || descB.length === 0) {
+    return { score: 0, distance: 999, isMatch: false, valueOf() { return 0; }, toString() { return '0'; } };
+  }
   
   try {
-    // Convert arrays back to Float32Array
     const arrA = new Float32Array(descA);
     const arrB = new Float32Array(descB);
     
-    // Calculate distance (lower is better, typically < 0.6 is a match)
+    // Calculate Euclidean distance (face-api standard: <= 0.55 is the same person)
     const distance = faceapi.euclideanDistance(arrA, arrB);
+    const isMatch = distance <= threshold;
     
-    // Map distance to a similarity percentage (0.0 distance = 100%, 0.6 distance = roughly 60%)
-    // Adjust mapping as needed for strictness.
-    let similarity = (1 - (distance / 1.5)) * 100;
-    similarity = Math.max(0, Math.min(100, similarity));
+    let score;
+    if (isMatch) {
+      // Confident match: mapped between 75% and 99.5%
+      score = 100 - (distance / threshold) * 25;
+    } else {
+      // Different person: drops sharply into 0% - 50%
+      score = Math.max(0, 50 - ((distance - threshold) / 0.5) * 50);
+    }
     
-    return +similarity.toFixed(1);
+    score = +score.toFixed(1);
+    
+    return {
+      score,
+      distance: +distance.toFixed(3),
+      isMatch,
+      valueOf() { return score; },
+      toString() { return String(score); },
+    };
   } catch (err) {
     console.error('Comparison error:', err);
-    return 0;
+    return { score: 0, distance: 999, isMatch: false, valueOf() { return 0; }, toString() { return '0'; } };
   }
 };
 
@@ -147,7 +161,11 @@ export const enrollHardwareFingerprint = async (staffName, employeeId) => {
 
 // 5. WebAuthn Fingerprint Verification
 export const verifyHardwareFingerprint = async (storedCredentialId) => {
-  if (window.PublicKeyCredential && storedCredentialId && !storedCredentialId.startsWith('fp_sensor_')) {
+  if (!storedCredentialId) {
+    return { success: false, verified: false, message: 'No fingerprint enrolled for this staff member.' };
+  }
+
+  if (window.PublicKeyCredential && window.isSecureContext && !storedCredentialId.startsWith('fp_sensor_')) {
     try {
       const challenge = new Uint8Array(32);
       window.crypto.getRandomValues(challenge);
@@ -171,14 +189,21 @@ export const verifyHardwareFingerprint = async (storedCredentialId) => {
 
       if (assertion) {
         return { success: true, verified: true };
+      } else {
+        return { success: false, verified: false, message: 'Biometric verification was rejected.' };
       }
     } catch (err) {
-      console.warn('WebAuthn assertion failed or canceled, falling back:', err.message);
+      console.warn('Hardware WebAuthn prompt canceled or failed:', err.message);
+      return { success: false, verified: false, message: 'Hardware fingerprint verification canceled or failed.' };
     }
   }
 
-  // Simulated verification succeeds if sensor touched
-  return { success: true, verified: true };
+  // If virtual sensor credential was enrolled
+  if (storedCredentialId.startsWith('fp_sensor_')) {
+    return { success: true, verified: true };
+  }
+
+  return { success: false, verified: false, message: 'Biometric credentials not verified.' };
 };
 
 // 6. Web Audio API Chime Synth

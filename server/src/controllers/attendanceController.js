@@ -100,8 +100,32 @@ export const biometricVerifyAndMark = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Staff member not found' });
     }
 
+    if (!staff.biometrics?.faceEnrolled || !staff.biometrics?.faceDescriptor?.length) {
+      return res.status(400).json({
+        success: false,
+        message: `Staff member "${staff.name}" has not enrolled their face biometrics. Please enroll first.`,
+      });
+    }
+
+    if (!staff.biometrics?.fingerprintEnrolled || !staff.biometrics?.fingerprintCredentialId) {
+      return res.status(400).json({
+        success: false,
+        message: `Staff member "${staff.name}" has not enrolled their fingerprint. Please enroll first.`,
+      });
+    }
+
+    if (!faceScore || Number(faceScore) < 70) {
+      return res.status(400).json({
+        success: false,
+        message: `Face verification rejected! Similarity score (${faceScore || 0}%) does not meet the 70% threshold. Wrong staff or mismatched face.`,
+      });
+    }
+
     if (!fingerprintVerified) {
-      return res.status(400).json({ success: false, message: 'Fingerprint verification failed' });
+      return res.status(400).json({
+        success: false,
+        message: 'Fingerprint biometric verification failed. Attendance denied.',
+      });
     }
 
     const now = new Date();
