@@ -1,0 +1,11 @@
+{
+  "name": "attendance-tracker-mern",
+  "version": "1.0.0",
+  "description": "Full-stack MERN Staff Attendance Tracker with Face Recognition & Fingerprint Biometrics",
+  "scripts": {
+    "server": "npm --prefix server run dev",
+    "client": "npm --prefix client run dev",
+    "install:all": "npm --prefix server install && npm --prefix client install"
+  },
+  "keywords": ["mern", "attendance", "biometric", "face-recognition", "fingerprint"]
+}
