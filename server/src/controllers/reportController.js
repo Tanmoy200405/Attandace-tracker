@@ -32,18 +32,28 @@ export const getMonthlyMatrix = async (req, res) => {
       staffRecordsMap.get(sId).set(dayNum, r);
     });
 
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
     const matrix = staffList.map((staff) => {
       const sId = staff._id.toString();
       const staffDays = staffRecordsMap.get(sId) || new Map();
+      const staffWeeklyOff = staff.weeklyOff || 'Sunday';
 
       let presentCount = 0;
       let lateCount = 0;
       let absentCount = 0;
       let leaveCount = 0;
+      let weeklyOffCount = 0;
       let totalWorkHours = 0;
+      let totalExtraHours = 0;
+      let overtimeDays = 0;
 
       const daysData = {};
       for (let d = 1; d <= daysInMonth; d++) {
+        const dateObj = new Date(year, month - 1, d);
+        const dayOfWeek = dayNames[dateObj.getDay()];
+        const isStaffWeeklyOff = dayOfWeek.toLowerCase() === staffWeeklyOff.toLowerCase();
+
         const rec = staffDays.get(d);
         if (rec) {
           daysData[d] = {
@@ -56,8 +66,24 @@ export const getMonthlyMatrix = async (req, res) => {
           if (rec.status === 'Present') presentCount++;
           else if (rec.status === 'Late') lateCount++;
           else if (rec.status === 'Absent') absentCount++;
+          else if (rec.status === 'Weekly Off') weeklyOffCount++;
           else if (rec.status === 'Leave' || rec.status === 'Half Day') leaveCount++;
-          totalWorkHours += (rec.workHours || 0);
+          
+          const hours = rec.workHours || 0;
+          totalWorkHours += hours;
+          if (hours > 8) {
+            totalExtraHours += (hours - 8);
+            overtimeDays++;
+          }
+        } else if (isStaffWeeklyOff) {
+          daysData[d] = {
+            status: 'Weekly Off',
+            checkIn: null,
+            checkOut: null,
+            hours: 0,
+            method: 'scheduled_off',
+          };
+          weeklyOffCount++;
         } else {
           daysData[d] = null;
         }
@@ -65,6 +91,22 @@ export const getMonthlyMatrix = async (req, res) => {
 
       const totalRecorded = presentCount + lateCount + absentCount + leaveCount;
       const rate = totalRecorded > 0 ? Math.round(((presentCount + lateCount) / totalRecorded) * 100) : 0;
+
+      // Payroll Calculations
+      const monthlySalary = staff.monthlySalary || 30000;
+      const dailyRate = Math.round(monthlySalary / 30);
+      
+      // Rule 1: 3 days late = 1 day salary cut
+      const latePenaltyDays = Math.floor(lateCount / 3);
+      const lateDeduction = latePenaltyDays * dailyRate;
+
+      // Rule 2: Absent days deduction
+      const absentDeduction = absentCount * dailyRate;
+
+      // Rule 3: Extra time gets 3% bonus pay
+      const overtimeBonus = Math.round(totalExtraHours * (dailyRate / 8) * 0.03 + overtimeDays * (dailyRate * 0.03));
+
+      const netSalary = Math.max(0, monthlySalary - lateDeduction - absentDeduction + overtimeBonus);
 
       return {
         staff: {
@@ -74,14 +116,33 @@ export const getMonthlyMatrix = async (req, res) => {
           department: staff.department,
           role: staff.role,
           avatarColor: staff.avatarColor,
+          weeklyOff: staff.weeklyOff || 'Sunday',
+          monthlySalary,
+          expectedCheckIn: staff.expectedCheckIn || '09:00 AM',
+          expectedCheckOut: staff.expectedCheckOut || '05:00 PM',
         },
         stats: {
           presentCount,
           lateCount,
           absentCount,
           leaveCount,
+          weeklyOffCount,
           totalWorkHours: +totalWorkHours.toFixed(1),
+          totalExtraHours: +totalExtraHours.toFixed(1),
           attendanceRate: rate,
+        },
+        payroll: {
+          monthlySalary,
+          dailyRate,
+          lateDays: lateCount,
+          latePenaltyDays,
+          lateDeduction,
+          absentDays: absentCount,
+          absentDeduction,
+          totalExtraHours: +totalExtraHours.toFixed(1),
+          overtimeBonus,
+          netSalary,
+          paymentStatus: 'Pending',
         },
         days: daysData,
       };

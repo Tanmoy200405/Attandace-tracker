@@ -266,9 +266,15 @@ export const AttendancePage = () => {
                   </td>
 
                   <td>
-                    <span className={`badge badge-${row.status.toLowerCase().replace(' ', '')}`}>
-                      {row.status}
-                    </span>
+                    {row.status === 'Weekly Off' ? (
+                      <span className="badge badge-unmarked" style={{ color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)', background: 'rgba(56, 189, 248, 0.1)' }}>
+                        Weekly Off 🌴
+                      </span>
+                    ) : (
+                      <span className={`badge badge-${row.status.toLowerCase().replace(' ', '')}`}>
+                        {row.status}
+                      </span>
+                    )}
                   </td>
 
                   <td style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.85rem' }}>

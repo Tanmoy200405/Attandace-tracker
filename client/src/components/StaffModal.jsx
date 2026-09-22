@@ -17,9 +17,21 @@ export const StaffModal = ({ staff, isOpen, onClose, onSuccess }) => {
         name: staff.name || '',
         email: staff.email || '',
         phone: staff.phone || '',
+        weeklyOff: staff.weeklyOff || 'Sunday',
+        monthlySalary: staff.monthlySalary || 30000,
+        expectedCheckIn: staff.expectedCheckIn || '09:00 AM',
+        expectedCheckOut: staff.expectedCheckOut || '05:00 PM',
       });
     } else {
-      setFormData({ name: '', email: '', phone: '' });
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        weeklyOff: 'Sunday',
+        monthlySalary: 30000,
+        expectedCheckIn: '09:00 AM',
+        expectedCheckOut: '05:00 PM',
+      });
     }
     setError(null);
   }, [staff, isOpen]);
@@ -50,9 +62,11 @@ export const StaffModal = ({ staff, isOpen, onClose, onSuccess }) => {
     }
   };
 
+  const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
   return (
     <div className="modal-overlay">
-      <div className="modal-content">
+      <div className="modal-content" style={{ maxWidth: '520px' }}>
         
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
@@ -60,7 +74,7 @@ export const StaffModal = ({ staff, isOpen, onClose, onSuccess }) => {
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(79, 70, 229, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8' }}>
               <UserPlus size={18} />
             </div>
-            <h3 style={{ fontSize: '1.1rem', margin: 0 }}>{staff ? 'Edit Staff Member' : 'Add New Staff Member'}</h3>
+            <h3 style={{ fontSize: '1.1rem', margin: 0 }}>{staff ? 'Edit Staff Profile' : 'Add New Staff Member'}</h3>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
             <X size={20} />
@@ -87,31 +101,90 @@ export const StaffModal = ({ staff, isOpen, onClose, onSuccess }) => {
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Email Address</label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={15} color="var(--text-dim)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-                <input
-                  type="email"
-                  className="form-input"
-                  style={{ paddingLeft: '2.5rem' }}
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-group">
+                <label className="form-label">Email Address</label>
+                <div style={{ position: 'relative' }}>
+                  <Mail size={15} color="var(--text-dim)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                  <input
+                    type="email"
+                    className="form-input"
+                    style={{ paddingLeft: '2.5rem' }}
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Phone Number</label>
+                <div style={{ position: 'relative' }}>
+                  <Phone size={15} color="var(--text-dim)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                  <input
+                    type="tel"
+                    className="form-input"
+                    style={{ paddingLeft: '2.5rem' }}
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Phone Number</label>
-              <div style={{ position: 'relative' }}>
-                <Phone size={15} color="var(--text-dim)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-                <input
-                  type="tel"
-                  className="form-input"
-                  style={{ paddingLeft: '2.5rem' }}
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
+            {/* Profile & Shift Configuration */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary-light)', textTransform: 'uppercase' }}>
+                Payroll & Shift Options
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Monthly Base Salary (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="form-input"
+                    value={formData.monthlySalary}
+                    onChange={(e) => setFormData({ ...formData, monthlySalary: Number(e.target.value) })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Weekly Day Off</label>
+                  <select
+                    className="form-select"
+                    value={formData.weeklyOff}
+                    onChange={(e) => setFormData({ ...formData, weeklyOff: e.target.value })}
+                  >
+                    {daysOfWeek.map((day) => (
+                      <option key={day} value={day}>{day}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Entry Shift Time</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 09:00 AM"
+                    className="form-input"
+                    value={formData.expectedCheckIn}
+                    onChange={(e) => setFormData({ ...formData, expectedCheckIn: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Exit Shift Time</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 05:00 PM"
+                    className="form-input"
+                    value={formData.expectedCheckOut}
+                    onChange={(e) => setFormData({ ...formData, expectedCheckOut: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
           </div>

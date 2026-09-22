@@ -72,15 +72,48 @@ export const StaffDetailModal = ({ staffId, isOpen, onClose }) => {
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Loading staff profile...</div>
           ) : (
             <>
+              {/* Shift & Salary Profile Info Banner */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                  gap: '0.75rem',
+                  padding: '0.875rem 1rem',
+                  background: 'rgba(31, 41, 55, 0.5)',
+                  borderRadius: 'var(--radius-md)',
+                  marginBottom: '1rem',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Entry / Exit Shift</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>
+                    {staff?.expectedCheckIn || '09:00 AM'} - {staff?.expectedCheckOut || '05:00 PM'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Weekly Off Day</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#38bdf8' }}>
+                    {staff?.weeklyOff || 'Sunday'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Monthly Base Salary</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#34d399' }}>
+                    ₹{(staff?.monthlySalary || 30000).toLocaleString('en-IN')}
+                  </div>
+                </div>
+              </div>
+
               {/* Biometric Status Badges */}
               <div
                 style={{
                   display: 'flex',
                   gap: '0.75rem',
-                  padding: '0.875rem 1rem',
-                  background: 'rgba(31, 41, 55, 0.5)',
+                  padding: '0.75rem 1rem',
+                  background: 'rgba(15, 23, 42, 0.4)',
                   borderRadius: 'var(--radius-md)',
-                  marginBottom: '1.5rem',
+                  marginBottom: '1.25rem',
                   border: '1px solid var(--border)',
                   flexWrap: 'wrap',
                 }}

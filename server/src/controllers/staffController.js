@@ -76,7 +76,7 @@ export const getStaffById = async (req, res) => {
 // @route   POST /api/staff
 export const createStaff = async (req, res) => {
   try {
-    const { name, employeeId, email, phone, department, role, dateOfJoining, avatarColor } = req.body;
+    const { name, employeeId, email, phone, department, role, dateOfJoining, avatarColor, weeklyOff, monthlySalary, expectedCheckIn, expectedCheckOut } = req.body;
 
     // Generate unique employee ID if not provided
     let empId = employeeId;
@@ -102,6 +102,10 @@ export const createStaff = async (req, res) => {
       role: role || 'Staff Member',
       dateOfJoining: dateOfJoining || new Date(),
       avatarColor: chosenColor,
+      weeklyOff: weeklyOff || 'Sunday',
+      monthlySalary: Number(monthlySalary) || 30000,
+      expectedCheckIn: expectedCheckIn || '09:00 AM',
+      expectedCheckOut: expectedCheckOut || '05:00 PM',
     });
 
     res.status(201).json({ success: true, data: staff });

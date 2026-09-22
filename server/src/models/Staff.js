@@ -46,6 +46,23 @@ const staffSchema = new mongoose.Schema({
     type: String,
     default: '#4F46E5',
   },
+  weeklyOff: {
+    type: String,
+    enum: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+    default: 'Sunday',
+  },
+  monthlySalary: {
+    type: Number,
+    default: 30000,
+  },
+  expectedCheckIn: {
+    type: String,
+    default: '09:00 AM',
+  },
+  expectedCheckOut: {
+    type: String,
+    default: '05:00 PM',
+  },
   biometrics: {
     faceEnrolled: {
       type: Boolean,
