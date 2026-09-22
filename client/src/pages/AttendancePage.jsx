@@ -16,6 +16,12 @@ import {
   X,
 } from 'lucide-react';
 
+// Format date as DD/MM/YYYY (Indian standard)
+const formatIndianDate = (dateStr) => {
+  const [y, m, d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+};
+
 export const AttendancePage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [department, setDepartment] = useState('All');
@@ -49,7 +55,7 @@ export const AttendancePage = () => {
   };
 
   const handleBulkMark = async (status) => {
-    if (!window.confirm(`Mark all unmarked staff as ${status} for ${selectedDate}?`)) return;
+    if (!window.confirm(`Mark all unmarked staff as ${status} for ${formatIndianDate(selectedDate)}?`)) return;
     try {
       await api.attendance.bulkMark({ date: selectedDate, status, department });
       fetchAttendance();
@@ -130,7 +136,7 @@ export const AttendancePage = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Date</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>{selectedDate}</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>{formatIndianDate(selectedDate)}</div>
           </div>
           <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: '1.5rem' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Present</div>
@@ -221,7 +227,7 @@ export const AttendancePage = () => {
             ) : list.length === 0 ? (
               <tr>
                 <td colSpan="9" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                  No staff records found for {selectedDate}.
+                  No staff records found for {formatIndianDate(selectedDate)}.
                 </td>
               </tr>
             ) : (

@@ -24,6 +24,12 @@ export const Dashboard = ({ setTab }) => {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
+  // Format date as DD/MM/YYYY (Indian standard)
+  const formatIndianDate = (dateStr) => {
+    const [y, m, d] = dateStr.split('-');
+    return `${d}/${m}/${y}`;
+  };
+
   const fetchTodayData = async () => {
     try {
       const res = await api.attendance.getByDate(todayStr);
@@ -125,7 +131,7 @@ export const Dashboard = ({ setTab }) => {
             <div>
               <h3 style={{ fontSize: '1.2rem', margin: 0 }}>Today's Staff Roster</h3>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>
-                Real-time check-in records for {todayStr}
+                Real-time check-in records for {formatIndianDate(todayStr)}
               </p>
             </div>
 

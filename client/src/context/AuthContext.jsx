@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const demoLogin = async () => {
-    return await login('owner@enterprise.com', 'password123');
+    return await login('admin@biotrack.com', 'admin123');
   };
 
   const logout = () => {

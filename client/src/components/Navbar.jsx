@@ -18,10 +18,10 @@ export const Navbar = ({ onOpenKiosk, onToggleSidebar }) => {
     hour12: true,
   });
 
-  const formattedDate = time.toLocaleDateString('en-US', {
+  const formattedDate = time.toLocaleDateString('en-IN', {
     weekday: 'short',
-    month: 'short',
-    day: 'numeric',
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
   });
 

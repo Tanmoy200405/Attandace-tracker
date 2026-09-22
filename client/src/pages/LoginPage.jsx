@@ -40,9 +40,21 @@ export const LoginPage = () => {
     setLoading(true);
     setError(null);
     try {
-      await demoLogin();
+      // Fixed admin credentials
+      await login('admin@biotrack.com', 'admin123');
     } catch (err) {
-      setError(err.message || 'Demo login failed');
+      // If admin account doesn't exist, auto-register it
+      try {
+        await api.auth.register({
+          name: 'Admin',
+          email: 'admin@biotrack.com',
+          password: 'admin123',
+          businessName: 'BioTrack Admin',
+        });
+        await login('admin@biotrack.com', 'admin123');
+      } catch (regErr) {
+        setError(regErr.message || 'Admin login failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -64,7 +76,7 @@ export const LoginPage = () => {
           width: '100%',
           maxWidth: '440px',
           padding: '2.5rem',
-          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6), 0 0 35px rgba(79, 70, 229, 0.25)',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6), 0 0 35px rgba(255, 255, 255, 0.08)',
         }}
       >
         {/* Brand Icon & Heading */}
@@ -74,12 +86,12 @@ export const LoginPage = () => {
               width: '56px',
               height: '56px',
               borderRadius: '16px',
-              background: 'linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)',
+              background: '#222222',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               margin: '0 auto 1rem',
-              boxShadow: '0 0 25px rgba(79, 70, 229, 0.5)',
+              boxShadow: '0 0 25px rgba(255, 255, 255, 0.15)',
             }}
           >
             <ShieldCheck size={32} color="#fff" />
@@ -119,11 +131,11 @@ export const LoginPage = () => {
               style={{ width: '100%', padding: '0.75rem' }}
             >
               <Sparkles size={16} />
-              <span>1-Click Demo Owner Sign-In</span>
+              <span>Admin Quick Login (admin@biotrack.com)</span>
             </button>
             <div style={{ display: 'flex', alignItems: 'center', margin: '1.5rem 0 0.5rem', gap: '0.75rem' }}>
               <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>or sign in with password</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>or sign in with email & password</span>
               <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
             </div>
           </div>
@@ -200,7 +212,7 @@ export const LoginPage = () => {
               setError(null);
             }}
             type="button"
-            style={{ background: 'none', border: 'none', color: '#818cf8', fontSize: '0.85rem', cursor: 'pointer' }}
+            style={{ background: 'none', border: 'none', color: '#cccccc', fontSize: '0.85rem', cursor: 'pointer' }}
           >
             {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Register"}
           </button>
