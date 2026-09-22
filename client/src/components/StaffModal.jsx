@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, UserPlus, Save, Building, Mail, Phone, Briefcase, Hash } from 'lucide-react';
+import { X, UserPlus, Save, Mail, Phone } from 'lucide-react';
 import { api } from '../services/api';
 
 export const StaffModal = ({ staff, isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: '',
-    employeeId: '',
     email: '',
     phone: '',
-    department: 'Engineering',
-    role: 'Staff Member',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -18,21 +15,11 @@ export const StaffModal = ({ staff, isOpen, onClose, onSuccess }) => {
     if (staff) {
       setFormData({
         name: staff.name || '',
-        employeeId: staff.employeeId || '',
         email: staff.email || '',
         phone: staff.phone || '',
-        department: staff.department || 'Engineering',
-        role: staff.role || 'Staff Member',
       });
     } else {
-      setFormData({
-        name: '',
-        employeeId: '',
-        email: '',
-        phone: '',
-        department: 'Engineering',
-        role: 'Staff Member',
-      });
+      setFormData({ name: '', email: '', phone: '' });
     }
     setError(null);
   }, [staff, isOpen]);
@@ -63,8 +50,6 @@ export const StaffModal = ({ staff, isOpen, onClose, onSuccess }) => {
     }
   };
 
-  const departments = ['Engineering', 'Sales', 'Marketing', 'Operations', 'Design', 'HR', 'Support', 'Finance'];
-
   return (
     <div className="modal-overlay">
       <div className="modal-content">
@@ -90,76 +75,44 @@ export const StaffModal = ({ staff, isOpen, onClose, onSuccess }) => {
             </div>
           )}
 
-          <div className="grid-2-col">
-            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+            <div className="form-group">
               <label className="form-label">Full Name *</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Jessica Taylor"
-                  className="form-input"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Employee ID</label>
               <input
                 type="text"
-                placeholder="Auto-generated if empty"
+                required
                 className="form-input"
-                value={formData.employeeId}
-                onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Department</label>
-              <select
-                className="form-select"
-                value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              >
-                {departments.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group" style={{ gridColumn: 'span 2' }}>
-              <label className="form-label">Designation / Role</label>
-              <input
-                type="text"
-                placeholder="e.g. Senior Frontend Developer"
-                className="form-input"
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
 
             <div className="form-group">
               <label className="form-label">Email Address</label>
-              <input
-                type="email"
-                placeholder="staff@company.com"
-                className="form-input"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
+              <div style={{ position: 'relative' }}>
+                <Mail size={15} color="var(--text-dim)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                <input
+                  type="email"
+                  className="form-input"
+                  style={{ paddingLeft: '2.5rem' }}
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </div>
             </div>
 
             <div className="form-group">
               <label className="form-label">Phone Number</label>
-              <input
-                type="tel"
-                placeholder="+1 (555) 000-0000"
-                className="form-input"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
+              <div style={{ position: 'relative' }}>
+                <Phone size={15} color="var(--text-dim)" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                <input
+                  type="tel"
+                  className="form-input"
+                  style={{ paddingLeft: '2.5rem' }}
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
             </div>
           </div>
 
@@ -178,3 +131,4 @@ export const StaffModal = ({ staff, isOpen, onClose, onSuccess }) => {
     </div>
   );
 };
+

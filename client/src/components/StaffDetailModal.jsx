@@ -58,7 +58,6 @@ export const StaffDetailModal = ({ staffId, isOpen, onClose }) => {
               <h3 style={{ fontSize: '1.2rem', margin: 0 }}>{staff?.name}</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
                 <span className="badge badge-unmarked" style={{ fontSize: '0.7rem' }}>{staff?.employeeId}</span>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{staff?.role} • {staff?.department}</span>
               </div>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
   CalendarCheck,
@@ -11,7 +12,9 @@ import {
 } from 'lucide-react';
 
 export const Sidebar = ({ currentTab, setTab, isOpen }) => {
-  const navItems = [
+  const { isStaff } = useAuth();
+
+  const allNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'attendance', label: 'Daily Attendance', icon: CalendarCheck },
     { id: 'staff', label: 'Staff Directory', icon: Users },
@@ -19,6 +22,9 @@ export const Sidebar = ({ currentTab, setTab, isOpen }) => {
     { id: 'reports', label: 'Monthly Reports', icon: BarChart3 },
     { id: 'settings', label: 'Shift Settings', icon: Settings },
   ];
+
+  // Staff members can only access Biometric Kiosk
+  const navItems = isStaff ? allNavItems.filter((i) => i.id === 'kiosk') : allNavItems;
 
   return (
     <aside

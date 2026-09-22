@@ -22,7 +22,6 @@ export const StaffPage = () => {
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [department, setDepartment] = useState('All');
 
   // Modals state
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
@@ -33,7 +32,7 @@ export const StaffPage = () => {
 
   const fetchStaff = async () => {
     try {
-      const res = await api.staff.getAll({ search, department });
+      const res = await api.staff.getAll({ search });
       if (res.success) {
         setStaffList(res.data);
       }
@@ -46,7 +45,7 @@ export const StaffPage = () => {
 
   useEffect(() => {
     fetchStaff();
-  }, [search, department]);
+  }, [search]);
 
   const handleDeleteStaff = async (staff) => {
     if (!window.confirm(`Are you sure you want to delete ${staff.name}? This will remove their biometric data and attendance records.`)) {
@@ -60,7 +59,7 @@ export const StaffPage = () => {
     }
   };
 
-  const departments = ['All', 'Engineering', 'Sales', 'Marketing', 'Operations', 'Design', 'HR', 'Support', 'Finance'];
+
 
   return (
     <div className="page-wrapper">
@@ -108,7 +107,7 @@ export const StaffPage = () => {
           />
           <input
             type="text"
-            placeholder="Search by name, ID, or designation..."
+            placeholder="Search by name..."
             className="form-input"
             style={{ paddingLeft: '2.5rem' }}
             value={search}
@@ -116,31 +115,8 @@ export const StaffPage = () => {
           />
         </div>
 
-        {/* Department Filters */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.2rem' }}>
-          <Filter size={15} color="var(--text-dim)" />
-          {departments.map((dept) => (
-            <button
-              key={dept}
-              onClick={() => setDepartment(dept)}
-              style={{
-                padding: '0.35rem 0.75rem',
-                borderRadius: '9999px',
-                border: '1px solid',
-                borderColor: department === dept ? 'var(--primary)' : 'var(--border)',
-                background: department === dept ? 'rgba(79, 70, 229, 0.2)' : 'transparent',
-                color: department === dept ? '#fff' : 'var(--text-muted)',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {dept}
-            </button>
-          ))}
-        </div>
+        {/* (Department filters removed) */}
+
       </div>
 
       {/* Staff Grid */}
@@ -212,9 +188,6 @@ export const StaffPage = () => {
                         <span className="badge badge-unmarked" style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem' }}>
                           {staff.employeeId}
                         </span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {staff.role}
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -242,10 +215,10 @@ export const StaffPage = () => {
                   </div>
                 </div>
 
-                {/* Department & Contact meta */}
+                {/* Contact meta */}
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <div>Department: <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{staff.department}</span></div>
                   {staff.email && <div>Email: <span style={{ color: 'var(--text-muted)' }}>{staff.email}</span></div>}
+                  {staff.phone && <div>Phone: <span style={{ color: 'var(--text-muted)' }}>{staff.phone}</span></div>}
                 </div>
 
                 {/* Biometrics Setup Box */}

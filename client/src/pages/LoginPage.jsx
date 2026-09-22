@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
-import { ShieldCheck, LogIn, UserPlus, Sparkles, Building } from 'lucide-react';
+import { ShieldCheck, LogIn, UserPlus, Sparkles, Building, Fingerprint } from 'lucide-react';
 
 export const LoginPage = () => {
-  const { login, demoLogin } = useAuth();
+  const { login, loginAsStaff, demoLogin } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -120,9 +120,20 @@ export const LoginPage = () => {
           </div>
         )}
 
-        {/* 1-Click Quick Demo Access */}
+        {/* Staff Kiosk Portal vs Admin Login */}
         {!isRegister && (
-          <div style={{ marginBottom: '1.75rem' }}>
+          <div style={{ marginBottom: '1.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <button
+              onClick={() => loginAsStaff()}
+              disabled={loading}
+              type="button"
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '0.8rem', background: '#10b981', borderColor: '#10b981', color: '#ffffff' }}
+            >
+              <Fingerprint size={18} />
+              <span>Enter Staff Kiosk Mode (Biometric Clock-In Only)</span>
+            </button>
+
             <button
               onClick={handleDemoLogin}
               disabled={loading}
@@ -133,9 +144,10 @@ export const LoginPage = () => {
               <Sparkles size={16} />
               <span>Admin Quick Login (admin@biotrack.com)</span>
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', margin: '1.5rem 0 0.5rem', gap: '0.75rem' }}>
+            
+            <div style={{ display: 'flex', alignItems: 'center', margin: '1rem 0 0.25rem', gap: '0.75rem' }}>
               <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>or sign in with email & password</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>or sign in with admin credentials</span>
               <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
             </div>
           </div>

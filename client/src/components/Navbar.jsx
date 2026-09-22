@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Clock, ShieldCheck, Camera, LogOut, Building, Menu } from 'lucide-react';
 
 export const Navbar = ({ onOpenKiosk, onToggleSidebar }) => {
-  const { owner, logout } = useAuth();
+  const { owner, isStaff, logout } = useAuth();
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -71,28 +71,32 @@ export const Navbar = ({ onOpenKiosk, onToggleSidebar }) => {
 
         {/* Right: Kiosk + User */}
         <div className="navbar-right">
-          <button
-            onClick={onOpenKiosk}
-            className="btn btn-kiosk navbar-kiosk-btn"
-          >
-            <Camera size={16} />
-            <span className="navbar-kiosk-text">Launch Kiosk</span>
-          </button>
+          {!isStaff && (
+            <button
+              onClick={onOpenKiosk}
+              className="btn btn-kiosk navbar-kiosk-btn"
+            >
+              <Camera size={16} />
+              <span className="navbar-kiosk-text">Launch Kiosk</span>
+            </button>
+          )}
 
           <div className="navbar-user">
             <div className="navbar-avatar">
-              {owner?.name ? owner.name.charAt(0) : 'O'}
+              {isStaff ? 'S' : owner?.name ? owner.name.charAt(0) : 'A'}
             </div>
             <div className="navbar-user-info">
               <span className="navbar-user-name">
-                {owner?.name || 'Owner'}
+                {isStaff ? 'Staff Kiosk' : owner?.name || 'Administrator'}
               </span>
-              <span className="navbar-user-role">Administrator</span>
+              <span className="navbar-user-role" style={{ color: isStaff ? '#a7f3d0' : '#93c5fd' }}>
+                {isStaff ? 'Staff Mode (Kiosk Only)' : 'Administrator'}
+              </span>
             </div>
             <button
               onClick={logout}
               className="btn btn-secondary"
-              title="Logout"
+              title="Logout / Switch Portal"
               style={{ padding: '0.4rem', borderRadius: '8px', color: 'var(--text-muted)' }}
             >
               <LogOut size={16} />

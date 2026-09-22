@@ -93,18 +93,22 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
     if (!capturedPhoto || !staff) return;
     setLoading(true);
     try {
-      // Create temporary canvas to calculate descriptor from capturedPhoto
+      // Load high-resolution captured photo directly into Image element
       const img = new Image();
       img.src = capturedPhoto;
-      await new Promise((res) => (img.onload = res));
+      await new Promise((res, rej) => {
+        img.onload = res;
+        img.onerror = rej;
+      });
 
-      const canvas = document.createElement('canvas');
-      canvas.width = 160;
-      canvas.height = 160;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, 160, 160);
+      // Extract high-accuracy 128-d face descriptor directly from photo
+      const descriptor = await extractFaceDescriptor(img);
 
-      const descriptor = await extractFaceDescriptor(canvas);
+      if (!descriptor) {
+        alert('❌ No face detected in the captured photo! Please retake with your face clearly visible within the frame.');
+        setLoading(false);
+        return;
+      }
 
       await api.staff.enrollFace(staff._id, capturedPhoto, descriptor);
       playAudioChime('success');

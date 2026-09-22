@@ -11,9 +11,16 @@ import { SettingsPage } from './pages/SettingsPage';
 import { LoginPage } from './pages/LoginPage';
 
 export const App = () => {
-  const { isAuthenticated, loading } = useAuth();
-  const [currentTab, setTab] = useState('dashboard');
+  const { isAuthenticated, isStaff, loading } = useAuth();
+  const [currentTab, setTab] = useState(isStaff ? 'kiosk' : 'dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Sync tab if user switches to staff role
+  React.useEffect(() => {
+    if (isStaff && currentTab !== 'kiosk') {
+      setTab('kiosk');
+    }
+  }, [isStaff]);
 
   if (loading) {
     return (
@@ -41,6 +48,7 @@ export const App = () => {
   }
 
   const handleTabChange = (tab) => {
+    if (isStaff && tab !== 'kiosk') return; // Staff blocked from switching tabs
     setTab(tab);
     setSidebarOpen(false); // close sidebar on mobile when navigating
   };
@@ -55,18 +63,24 @@ export const App = () => {
         />
       )}
 
-      <Sidebar currentTab={currentTab} setTab={handleTabChange} isOpen={sidebarOpen} />
+      <Sidebar currentTab={isStaff ? 'kiosk' : currentTab} setTab={handleTabChange} isOpen={sidebarOpen} />
 
       <div className="main-content">
         <Navbar onOpenKiosk={() => handleTabChange('kiosk')} onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
         <main style={{ flex: 1 }}>
-          {currentTab === 'dashboard' && <Dashboard setTab={handleTabChange} />}
-          {currentTab === 'attendance' && <AttendancePage />}
-          {currentTab === 'staff' && <StaffPage />}
-          {currentTab === 'kiosk' && <KioskPage onClose={() => handleTabChange('dashboard')} />}
-          {currentTab === 'reports' && <ReportsPage />}
-          {currentTab === 'settings' && <SettingsPage />}
+          {isStaff ? (
+            <KioskPage onClose={() => {}} />
+          ) : (
+            <>
+              {currentTab === 'dashboard' && <Dashboard setTab={handleTabChange} />}
+              {currentTab === 'attendance' && <AttendancePage />}
+              {currentTab === 'staff' && <StaffPage />}
+              {currentTab === 'kiosk' && <KioskPage onClose={() => handleTabChange('dashboard')} />}
+              {currentTab === 'reports' && <ReportsPage />}
+              {currentTab === 'settings' && <SettingsPage />}
+            </>
+          )}
         </main>
       </div>
     </div>
