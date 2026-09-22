@@ -81,13 +81,28 @@ export const createStaff = async (req, res) => {
     // Generate unique employee ID if not provided
     let empId = employeeId;
     if (!empId) {
-      const count = await Staff.countDocuments();
-      empId = `EMP-${String(count + 1).padStart(3, '0')}`;
-    }
+      let maxNum = 0;
+      const allStaff = await Staff.find({}, { employeeId: 1 });
+      allStaff.forEach((s) => {
+        if (s.employeeId && s.employeeId.startsWith('EMP-')) {
+          const num = parseInt(s.employeeId.replace('EMP-', ''), 10);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+      });
+      empId = `EMP-${String(maxNum + 1).padStart(3, '0')}`;
 
-    const existingStaff = await Staff.findOne({ employeeId: empId });
-    if (existingStaff) {
-      return res.status(400).json({ success: false, message: `Staff with ID ${empId} already exists` });
+      // Double check uniqueness in case of race condition or custom format
+      while (await Staff.exists({ employeeId: empId })) {
+        maxNum += 1;
+        empId = `EMP-${String(maxNum + 1).padStart(3, '0')}`;
+      }
+    } else {
+      const existingStaff = await Staff.findOne({ employeeId: empId });
+      if (existingStaff) {
+        return res.status(400).json({ success: false, message: `Staff with ID ${empId} already exists` });
+      }
     }
 
     const colors = ['#4F46E5', '#059669', '#D97706', '#DC2626', '#7C3AED', '#2563EB', '#DB2777'];
