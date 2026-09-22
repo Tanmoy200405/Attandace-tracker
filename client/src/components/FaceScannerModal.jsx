@@ -9,6 +9,7 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [cameraError, setCameraError] = useState(null);
   const videoRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Initialize camera stream when modal opens
   useEffect(() => {
@@ -29,6 +30,19 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
   const startCamera = async () => {
     setCameraError(null);
     try {
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const isHttps = window.location.protocol === 'https:';
+
+      if (!isLocal && !isHttps) {
+        setCameraError('Mobile browsers block live webcam over insecure HTTP. Tap "Take Photo with Phone Camera" below or switch to HTTPS.');
+        return;
+      }
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setCameraError('Live camera not supported by this browser. Tap "Take Photo with Phone Camera" below.');
+        return;
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
         audio: false,
@@ -39,7 +53,7 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
       }
     } catch (err) {
       console.warn('Webcam permission error:', err);
-      setCameraError('Camera access not granted or unavailable on this device.');
+      setCameraError('Camera access not granted or unavailable on this device. You can take a photo directly with your phone camera.');
     }
   };
 
@@ -57,6 +71,18 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
         setCapturedPhoto(photo);
       }
     }
+  };
+
+  const handleNativeCapture = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const photo = event.target?.result;
+      setCapturedPhoto(photo);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleRetake = () => {
@@ -132,13 +158,33 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
               justifyContent: 'center',
             }}
           >
+            {/* Hidden native camera input */}
+            <input
+              type="file"
+              accept="image/*"
+              capture="user"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              onChange={handleNativeCapture}
+            />
+
             {cameraError ? (
-              <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <div style={{ padding: '1.25rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <AlertCircle size={32} style={{ marginBottom: '0.5rem', color: '#ffffff' }} />
-                <p style={{ fontSize: '0.85rem' }}>{cameraError}</p>
-                <button onClick={startCamera} className="btn btn-secondary" style={{ marginTop: '0.75rem', fontSize: '0.75rem' }}>
-                  Retry Camera
-                </button>
+                <p style={{ fontSize: '0.8rem', lineHeight: '1.4', marginBottom: '0.75rem' }}>{cameraError}</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="btn btn-primary"
+                    style={{ fontSize: '0.8rem', padding: '0.55rem 0.85rem' }}
+                  >
+                    <Camera size={16} />
+                    <span>Take Photo with Phone Camera</span>
+                  </button>
+                  <button onClick={startCamera} className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '0.45rem' }}>
+                    Retry Live Camera
+                  </button>
+                </div>
               </div>
             ) : capturedPhoto ? (
               <img src={capturedPhoto} alt="Captured face snapshot" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -178,32 +224,40 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
           </p>
 
           {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem', width: '100%', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem', width: '100%', justifyContent: 'center', flexWrap: 'wrap' }}>
             {capturedPhoto ? (
               <>
-                <button onClick={handleRetake} className="btn btn-secondary" style={{ flex: 1 }}>
+                <button onClick={handleRetake} className="btn btn-secondary" style={{ flex: '1 1 120px' }}>
                   <RefreshCw size={16} />
                   <span>Retake</span>
                 </button>
                 <button
                   onClick={handleSaveEnrollment}
                   disabled={loading}
-                  className="btn btn-success"
-                  style={{ flex: 1 }}
+                  className="btn btn-primary"
+                  style={{ flex: '1 1 180px' }}
                 >
                   <Check size={16} />
                   <span>{loading ? 'Enrolling...' : 'Confirm & Enroll Face'}</span>
                 </button>
               </>
-            ) : (
+            ) : stream ? (
               <button
                 onClick={handleCapture}
-                disabled={!stream}
                 className="btn btn-primary"
                 style={{ width: '100%', maxWidth: '280px' }}
               >
                 <Camera size={18} />
                 <span>Capture Snapshot</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="btn btn-primary"
+                style={{ width: '100%', maxWidth: '280px' }}
+              >
+                <Camera size={18} />
+                <span>Take Photo with Phone Camera</span>
               </button>
             )}
           </div>

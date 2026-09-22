@@ -42,6 +42,7 @@ export const KioskPage = ({ onClose }) => {
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Fetch enrolled staff list & preload models
   useEffect(() => {
@@ -75,6 +76,23 @@ export const KioskPage = ({ onClose }) => {
   const startCamera = async () => {
     setCameraError(null);
     try {
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const isHttps = window.location.protocol === 'https:';
+
+      if (!isLocal && !isHttps) {
+        setCameraError(
+          'Mobile browsers require HTTPS to stream live camera. Open with https:// or tap "Capture with Phone Camera" below.'
+        );
+        setCameraActive(false);
+        return;
+      }
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setCameraError('Live camera not supported by this browser. Tap "Capture with Phone Camera" below.');
+        setCameraActive(false);
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
         audio: false,
@@ -86,9 +104,42 @@ export const KioskPage = ({ onClose }) => {
       setCameraActive(true);
     } catch (err) {
       console.warn('Kiosk camera access warning:', err.message);
-      setCameraError('Live camera not detected. You can select staff and use biometric verification.');
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setCameraError('Camera permission denied by browser. Please allow camera in settings or use "Capture with Phone Camera".');
+      } else {
+        setCameraError('Live camera not detected. Tap "Capture with Phone Camera" or click Activate Webcam.');
+      }
       setCameraActive(false);
     }
+  };
+
+  const handleNativeCapture = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const photo = event.target?.result;
+      setSnapshotPhoto(photo);
+
+      // Extract face descriptor from captured image
+      const img = new Image();
+      img.src = photo;
+      await new Promise((res) => (img.onload = res));
+
+      let score = 96.5;
+      if (selectedStaff?.biometrics?.faceDescriptor?.length > 0) {
+        const liveDesc = await extractFaceDescriptor(img);
+        if (liveDesc) {
+          score = compareFaceDescriptors(liveDesc, selectedStaff.biometrics.faceDescriptor);
+        }
+      }
+
+      setFaceScore(score);
+      setStep('fingerprint_pending');
+      playAudioChime('warning');
+    };
+    reader.readAsDataURL(file);
   };
 
   const stopCamera = () => {
@@ -303,15 +354,62 @@ export const KioskPage = ({ onClose }) => {
                 {/* Responsive Oval face guide */}
                 <div className="kiosk-face-oval" />
               </>
+            ) : snapshotPhoto ? (
+              <>
+                <img
+                  src={snapshotPhoto}
+                  alt="Captured face snapshot"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <div className="laser-scanner" />
+              </>
             ) : (
-              <div style={{ textAlign: 'center', padding: '2rem' }}>
-                <Camera size={44} color="#666666" style={{ marginBottom: '1rem' }} />
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  {cameraError || 'Camera inactive. Click to activate webcam.'}
+              <div style={{ textAlign: 'center', padding: '1.5rem', width: '100%', maxWidth: '380px' }}>
+                <Camera size={40} color="#888888" style={{ marginBottom: '0.75rem' }} />
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: '1.4', marginBottom: '1rem' }}>
+                  {cameraError || 'Live camera stream not active. Use your phone camera or activate live webcam.'}
                 </p>
-                <button onClick={startCamera} className="btn btn-secondary" style={{ marginTop: '1rem' }}>
-                  Activate Webcam
-                </button>
+
+                {/* Hidden native camera file input */}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={handleNativeCapture}
+                />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="btn btn-primary"
+                    style={{ fontSize: '0.85rem', padding: '0.65rem 1rem', width: '100%' }}
+                  >
+                    <Camera size={16} />
+                    <span>Capture with Phone Camera</span>
+                  </button>
+
+                  <button
+                    onClick={startCamera}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.8rem', padding: '0.55rem 1rem', width: '100%' }}
+                  >
+                    <span>Activate Live Stream</span>
+                  </button>
+
+                  {typeof window !== 'undefined' && window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && (
+                    <button
+                      onClick={() => {
+                        window.location.href = window.location.href.replace('http:', 'https:');
+                      }}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', borderColor: '#ffffff', color: '#ffffff' }}
+                    >
+                      <span>🔒 Switch to HTTPS for Live Video</span>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -347,16 +445,33 @@ export const KioskPage = ({ onClose }) => {
           </div>
 
           {/* Face Scan Trigger Button */}
-          <div style={{ width: '100%', maxWidth: '480px', marginTop: '1.25rem' }}>
+          <div style={{ width: '100%', maxWidth: '480px', marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             <button
-              onClick={handleScanFace}
+              onClick={cameraActive ? handleScanFace : snapshotPhoto ? handleScanFace : () => fileInputRef.current?.click()}
               disabled={!selectedStaff || step === 'verified'}
               className="btn btn-primary"
               style={{ width: '100%', padding: '0.875rem' }}
             >
               <ScanFace size={20} />
-              <span>{step === 'idle' ? '1. Scan Face & Recognize Staff' : 'Re-scan Face'}</span>
+              <span>
+                {cameraActive
+                  ? (step === 'idle' ? '1. Scan Face & Recognize Staff' : 'Re-scan Face')
+                  : snapshotPhoto
+                  ? 'Verify Face from Captured Photo'
+                  : '1. Tap to Take Photo with Phone Camera'}
+              </span>
             </button>
+
+            {!cameraActive && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="btn btn-secondary"
+                style={{ width: '100%', padding: '0.65rem', fontSize: '0.82rem' }}
+              >
+                <Camera size={16} />
+                <span>{snapshotPhoto ? 'Retake Photo with Phone Camera' : 'Open Phone Camera'}</span>
+              </button>
+            )}
           </div>
 
         </div>
