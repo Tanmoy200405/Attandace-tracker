@@ -33,6 +33,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Root fallback to guide user to the right port
+app.get('/', (req, res) => {
+  res.send('<h1>BioTrack API is running!</h1><p>Please open the frontend client at <a href="http://localhost:5173">http://localhost:5173</a> to view the app.</p>');
+});
+
 // Error handling fallback
 app.use((err, req, res, next) => {
   console.error('Unhandled Server Error:', err);
