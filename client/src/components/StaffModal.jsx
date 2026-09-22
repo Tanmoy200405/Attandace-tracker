@@ -90,7 +90,7 @@ export const StaffModal = ({ staff, isOpen, onClose, onSuccess }) => {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="grid-2-col">
             <div className="form-group" style={{ gridColumn: 'span 2' }}>
               <label className="form-label">Full Name *</label>
               <div style={{ position: 'relative' }}>

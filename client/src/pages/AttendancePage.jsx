@@ -85,7 +85,7 @@ export const AttendancePage = () => {
         </div>
 
         {/* Date Selector Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button onClick={() => handleDateChange(-1)} className="btn btn-secondary" style={{ padding: '0.5rem' }}>
             <ChevronLeft size={18} />
           </button>

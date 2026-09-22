@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 
-const BASE_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model/';
+const BASE_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
 const MODELS_DIR = path.join(__dirname, 'public', 'models');
 
 const files = [

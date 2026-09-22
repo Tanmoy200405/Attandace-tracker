@@ -12,77 +12,78 @@ export const captureFrameFromVideo = (videoElement) => {
   return canvas.toDataURL('image/jpeg', 0.85);
 };
 
-// 2. Extract feature vector descriptor from video/canvas
-export const extractFaceDescriptor = (videoOrCanvas) => {
+import * as faceapi from '@vladmandic/face-api';
+
+let modelsLoaded = false;
+
+// Initialize face-api models
+export const loadFaceModels = async () => {
+  if (modelsLoaded) return true;
   try {
-    let canvas;
-    if (videoOrCanvas instanceof HTMLVideoElement) {
-      canvas = document.createElement('canvas');
-      canvas.width = 160;
-      canvas.height = 160;
-      const ctx = canvas.getContext('2d');
-      // Draw center-cropped region where face is located
-      const vw = videoOrCanvas.videoWidth || 640;
-      const vh = videoOrCanvas.videoHeight || 480;
-      const size = Math.min(vw, vh) * 0.6;
-      const sx = (vw - size) / 2;
-      const sy = (vh - size) / 2;
-      ctx.drawImage(videoOrCanvas, sx, sy, size, size, 0, 0, 160, 160);
-    } else {
-      canvas = videoOrCanvas;
-    }
-
-    const ctx = canvas.getContext('2d');
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-
-    // Generate 16-zone normalized luminance & gradient feature vector
-    const zones = 16;
-    const step = Math.floor(imgData.length / zones);
-    const descriptor = [];
-
-    for (let i = 0; i < zones; i++) {
-      let sumR = 0, sumG = 0, sumB = 0;
-      const start = i * step;
-      const count = Math.min(step, imgData.length - start);
-      for (let j = 0; j < count; j += 4) {
-        sumR += imgData[start + j];
-        sumG += imgData[start + j + 1];
-        sumB += imgData[start + j + 2];
-      }
-      const avg = (sumR * 0.299 + sumG * 0.587 + sumB * 0.114) / (count / 4 || 1);
-      descriptor.push(+(avg / 255).toFixed(4));
-    }
-
-    return descriptor;
+    const modelPath = '/models';
+    await Promise.all([
+      faceapi.nets.ssdMobilenetv1.loadFromUri(modelPath),
+      faceapi.nets.faceLandmark68Net.loadFromUri(modelPath),
+      faceapi.nets.faceRecognitionNet.loadFromUri(modelPath)
+    ]);
+    modelsLoaded = true;
+    console.log('Face models loaded successfully');
+    return true;
   } catch (err) {
-    console.error('Feature descriptor extraction error:', err);
-    return Array.from({ length: 16 }, () => +(Math.random() * 0.8 + 0.1).toFixed(4));
+    console.error('Error loading face models:', err);
+    return false;
   }
 };
 
-// 3. Compare two face descriptors using Cosine Similarity
+// 2. Extract feature vector descriptor from video/canvas
+export const extractFaceDescriptor = async (videoOrCanvas) => {
+  try {
+    if (!modelsLoaded) {
+      const loaded = await loadFaceModels();
+      if (!loaded) throw new Error('Models failed to load');
+    }
+
+    // Detect a single face with landmarks and descriptor
+    const detection = await faceapi
+      .detectSingleFace(videoOrCanvas, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
+    if (!detection) {
+      console.warn('No face detected in frame');
+      return null;
+    }
+
+    // Convert Float32Array to standard array for JSON serialization/storage
+    return Array.from(detection.descriptor);
+  } catch (err) {
+    console.error('Feature descriptor extraction error:', err);
+    return null;
+  }
+};
+
+// 3. Compare two face descriptors using Euclidean Distance
 export const compareFaceDescriptors = (descA, descB) => {
   if (!descA || !descB || descA.length === 0 || descB.length === 0) return 0;
-
-  const len = Math.min(descA.length, descB.length);
-  let dotProduct = 0;
-  let magA = 0;
-  let magB = 0;
-
-  for (let i = 0; i < len; i++) {
-    dotProduct += descA[i] * descB[i];
-    magA += descA[i] * descA[i];
-    magB += descB[i] * descB[i];
+  
+  try {
+    // Convert arrays back to Float32Array
+    const arrA = new Float32Array(descA);
+    const arrB = new Float32Array(descB);
+    
+    // Calculate distance (lower is better, typically < 0.6 is a match)
+    const distance = faceapi.euclideanDistance(arrA, arrB);
+    
+    // Map distance to a similarity percentage (0.0 distance = 100%, 0.6 distance = roughly 60%)
+    // Adjust mapping as needed for strictness.
+    let similarity = (1 - (distance / 1.5)) * 100;
+    similarity = Math.max(0, Math.min(100, similarity));
+    
+    return +similarity.toFixed(1);
+  } catch (err) {
+    console.error('Comparison error:', err);
+    return 0;
   }
-
-  magA = Math.sqrt(magA);
-  magB = Math.sqrt(magB);
-
-  if (magA === 0 || magB === 0) return 0;
-  const similarity = dotProduct / (magA * magB);
-  // Normalize similarity to a clean percentage
-  const score = Math.max(0, Math.min(100, (similarity * 0.5 + 0.5) * 100));
-  return +score.toFixed(1);
 };
 
 // 4. WebAuthn Fingerprint Hardware Enrollment

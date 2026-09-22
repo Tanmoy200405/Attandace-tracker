@@ -20,6 +20,7 @@ import {
   compareFaceDescriptors,
   verifyHardwareFingerprint,
   playAudioChime,
+  loadFaceModels,
 } from '../utils/biometrics';
 
 export const KioskPage = ({ onClose }) => {
@@ -42,7 +43,7 @@ export const KioskPage = ({ onClose }) => {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
-  // Fetch enrolled staff list
+  // Fetch enrolled staff list & preload models
   useEffect(() => {
     const fetchEnrolled = async () => {
       try {
@@ -60,6 +61,7 @@ export const KioskPage = ({ onClose }) => {
       }
     };
     fetchEnrolled();
+    loadFaceModels(); // Preload face-api models
   }, []);
 
   // Initialize camera
@@ -97,7 +99,7 @@ export const KioskPage = ({ onClose }) => {
   };
 
   // Face Scan Trigger
-  const handleScanFace = () => {
+  const handleScanFace = async () => {
     if (!selectedStaff) return;
 
     let photo = null;
@@ -109,7 +111,7 @@ export const KioskPage = ({ onClose }) => {
         setSnapshotPhoto(photo);
         // Compare with enrolled descriptor if available
         if (selectedStaff.biometrics?.faceDescriptor?.length > 0) {
-          const liveDescriptor = extractFaceDescriptor(videoRef.current);
+          const liveDescriptor = await extractFaceDescriptor(videoRef.current);
           score = compareFaceDescriptors(liveDescriptor, selectedStaff.biometrics.faceDescriptor);
           if (score < 60) score = +(88 + Math.random() * 10).toFixed(1); // normalized baseline
         }
@@ -184,122 +186,107 @@ export const KioskPage = ({ onClose }) => {
   };
 
   return (
-    <div className="page-wrapper" style={{ maxWidth: '1200px' }}>
+    <div className="page-wrapper kiosk-container">
       
       {/* Kiosk Header */}
       <div
-        className="glass-card"
+        className="glass-card kiosk-header"
         style={{
-          padding: '1.25rem 2rem',
-          marginBottom: '2rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          border: '1px solid rgba(6, 182, 212, 0.3)',
-          boxShadow: '0 0 30px rgba(6, 182, 212, 0.12)',
+          border: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-md)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div
             style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '14px',
-              background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
+              width: '44px',
+              height: '44px',
+              borderRadius: '12px',
+              background: '#222222',
+              border: '1px solid var(--border-light)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 20px rgba(6, 182, 212, 0.4)',
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
-            <ShieldCheck size={28} color="#fff" />
+            <ShieldCheck size={26} color="#ffffff" />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <h2 style={{ fontSize: '1.4rem', margin: 0, color: '#fff' }}>Biometric Attendance Kiosk</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <h2 style={{ fontSize: '1.3rem', margin: 0, color: '#fff' }}>Biometric Attendance Kiosk</h2>
               <span className="badge badge-biometric">Live Verification Mode</span>
             </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>
               Dual Authentication: Facial Biometrics + Fingerprint Hardware Sensor
             </p>
           </div>
         </div>
 
         {/* Check-In vs Check-Out Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#0b0f19', padding: '0.35rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+        <div className="kiosk-toggle-group">
           <button
             onClick={() => setActionType('check-in')}
             style={{
-              padding: '0.5rem 1.25rem',
+              padding: '0.55rem 1.25rem',
               borderRadius: '8px',
               border: 'none',
-              background: actionType === 'check-in' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
-              color: actionType === 'check-in' ? '#fff' : 'var(--text-muted)',
+              background: actionType === 'check-in' ? '#ffffff' : 'transparent',
+              color: actionType === 'check-in' ? '#000000' : 'var(--text-muted)',
               fontWeight: 700,
               fontSize: '0.85rem',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
             }}
           >
-            Clock In (Arrival)
+            <span>Clock In (Arrival)</span>
           </button>
           <button
             onClick={() => setActionType('check-out')}
             style={{
-              padding: '0.5rem 1.25rem',
+              padding: '0.55rem 1.25rem',
               borderRadius: '8px',
               border: 'none',
-              background: actionType === 'check-out' ? 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)' : 'transparent',
-              color: actionType === 'check-out' ? '#fff' : 'var(--text-muted)',
+              background: actionType === 'check-out' ? '#ffffff' : 'transparent',
+              color: actionType === 'check-out' ? '#000000' : 'var(--text-muted)',
               fontWeight: 700,
               fontSize: '0.85rem',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
             }}
           >
-            Clock Out (Departure)
+            <span>Clock Out (Departure)</span>
           </button>
         </div>
       </div>
 
       {/* Main Dual Verification Arena */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 380px', gap: '2rem', alignItems: 'start' }}>
+      <div className="kiosk-grid">
         
         {/* Left Column: Live Camera & Face Recognition */}
-        <div className="glass-card" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div className="glass-card kiosk-card">
           
-          <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <ScanFace size={20} color="#22d3ee" />
-              <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Step 1: Face Recognition</h3>
+              <ScanFace size={20} color="#ffffff" />
+              <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Step 1: Face Recognition</h3>
             </div>
             {cameraActive && (
               <span className="badge badge-present" style={{ fontSize: '0.7rem' }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ffffff' }} />
                 Camera Stream Active
               </span>
             )}
           </div>
 
           {/* Camera Box */}
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              maxWidth: '480px',
-              aspectRatio: '4/3',
-              borderRadius: 'var(--radius-xl)',
-              overflow: 'hidden',
-              background: '#090d16',
-              border: '2px solid rgba(6, 182, 212, 0.4)',
-              boxShadow: '0 0 35px rgba(6, 182, 212, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
+          <div className="kiosk-camera-container">
             {cameraActive ? (
               <>
                 <video
@@ -313,22 +300,12 @@ export const KioskPage = ({ onClose }) => {
                 {/* Laser scan animation */}
                 <div className="laser-scanner" />
 
-                {/* Oval face guide */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    width: '220px',
-                    height: '260px',
-                    borderRadius: '50%',
-                    border: '2px dashed rgba(34, 211, 238, 0.8)',
-                    boxShadow: '0 0 25px rgba(34, 211, 238, 0.4)',
-                    pointerEvents: 'none',
-                  }}
-                />
+                {/* Responsive Oval face guide */}
+                <div className="kiosk-face-oval" />
               </>
             ) : (
               <div style={{ textAlign: 'center', padding: '2rem' }}>
-                <Camera size={48} color="#4b5563" style={{ marginBottom: '1rem' }} />
+                <Camera size={44} color="#666666" style={{ marginBottom: '1rem' }} />
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                   {cameraError || 'Camera inactive. Click to activate webcam.'}
                 </p>
@@ -343,26 +320,26 @@ export const KioskPage = ({ onClose }) => {
               <div
                 style={{
                   position: 'absolute',
-                  bottom: '1rem',
-                  left: '1rem',
-                  right: '1rem',
-                  background: 'rgba(15, 23, 42, 0.85)',
+                  bottom: '0.75rem',
+                  left: '0.75rem',
+                  right: '0.75rem',
+                  background: 'rgba(0, 0, 0, 0.85)',
                   backdropFilter: 'blur(10px)',
-                  padding: '0.75rem 1rem',
+                  padding: '0.65rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
-                  border: '1px solid rgba(34, 211, 238, 0.4)',
+                  border: '1px solid var(--border-light)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                  <CheckCircle2 size={18} color="#34d399" />
+                  <CheckCircle2 size={18} color="#ffffff" />
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>
                     {selectedStaff?.name}
                   </span>
                 </div>
-                <span style={{ fontSize: '0.8rem', color: '#22d3ee', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
+                <span style={{ fontSize: '0.8rem', color: '#ffffff', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
                   {faceScore}% Match
                 </span>
               </div>
@@ -385,12 +362,12 @@ export const KioskPage = ({ onClose }) => {
         </div>
 
         {/* Right Column: Fingerprint Verification & Final Approval */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
           
           {/* Staff Selector */}
           <div className="glass-card" style={{ padding: '1.25rem' }}>
             <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <UserCheck size={16} color="#818cf8" />
+              <UserCheck size={16} color="#cccccc" />
               <span>Staff Profile in Camera Frame</span>
             </label>
             <select
@@ -416,49 +393,34 @@ export const KioskPage = ({ onClose }) => {
 
           {/* Step 2: Fingerprint Sensor */}
           <div
-            className="glass-card"
+            className="glass-card kiosk-card"
             style={{
-              padding: '1.75rem',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              textAlign: 'center',
-              border: step === 'fingerprint_pending' ? '2px solid rgba(6, 182, 212, 0.5)' : '1px solid var(--border)',
+              padding: '1.5rem',
+              border: step === 'fingerprint_pending' ? '2px solid #ffffff' : '1px solid var(--border)',
             }}
           >
             <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-              <Fingerprint size={20} color="#818cf8" />
-              <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Step 2: Fingerprint Sensor</h3>
+              <Fingerprint size={20} color="#ffffff" />
+              <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Step 2: Fingerprint Sensor</h3>
             </div>
 
             {/* Glowing Sensor Pad */}
             <div
               onClick={step === 'fingerprint_pending' ? handleScanFingerprint : undefined}
+              className="sensor-pad"
               style={{
-                position: 'relative',
-                width: '130px',
-                height: '130px',
-                borderRadius: '50%',
                 background: fpVerified
-                  ? 'radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, rgba(17, 24, 39, 0.9) 100%)'
+                  ? 'radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(20, 20, 20, 0.95) 100%)'
                   : fpScanning
-                  ? 'radial-gradient(circle, rgba(6, 182, 212, 0.35) 0%, rgba(17, 24, 39, 0.9) 100%)'
+                  ? 'radial-gradient(circle, rgba(200, 200, 200, 0.3) 0%, rgba(20, 20, 20, 0.95) 100%)'
                   : step === 'fingerprint_pending'
-                  ? 'radial-gradient(circle, rgba(79, 70, 229, 0.2) 0%, rgba(17, 24, 39, 0.9) 100%)'
-                  : 'rgba(31, 41, 55, 0.3)',
-                border: `2px solid ${fpVerified ? '#10b981' : fpScanning ? '#22d3ee' : step === 'fingerprint_pending' ? '#818cf8' : 'var(--border)'}`,
-                boxShadow: fpVerified
-                  ? '0 0 35px rgba(16, 185, 129, 0.4)'
-                  : fpScanning
-                  ? '0 0 35px rgba(34, 211, 238, 0.5)'
-                  : step === 'fingerprint_pending'
-                  ? '0 0 25px rgba(129, 140, 248, 0.3)'
+                  ? 'radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, rgba(20, 20, 20, 0.95) 100%)'
+                  : 'rgba(25, 25, 25, 0.5)',
+                border: `2px solid ${fpVerified ? '#ffffff' : fpScanning ? '#cccccc' : step === 'fingerprint_pending' ? '#ffffff' : 'var(--border)'}`,
+                boxShadow: fpVerified || fpScanning || step === 'fingerprint_pending'
+                  ? '0 0 25px rgba(255, 255, 255, 0.2)'
                   : 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
                 cursor: step === 'fingerprint_pending' ? 'pointer' : 'default',
-                transition: 'all 0.3s ease',
               }}
             >
               {fpScanning && (
@@ -468,23 +430,23 @@ export const KioskPage = ({ onClose }) => {
                     position: 'absolute',
                     inset: -8,
                     borderRadius: '50%',
-                    border: '2px solid #22d3ee',
+                    border: '2px solid #ffffff',
                   }}
                 />
               )}
 
               {fpVerified ? (
-                <CheckCircle2 size={56} color="#10b981" />
+                <CheckCircle2 size={52} color="#ffffff" />
               ) : (
                 <Fingerprint
-                  size={64}
-                  color={fpScanning ? '#22d3ee' : step === 'fingerprint_pending' ? '#818cf8' : '#4b5563'}
+                  size={58}
+                  color={fpScanning ? '#ffffff' : step === 'fingerprint_pending' ? '#ffffff' : '#666666'}
                 />
               )}
             </div>
 
-            <div style={{ marginTop: '1.25rem' }}>
-              <h4 style={{ fontSize: '0.95rem', color: fpVerified ? '#34d399' : step === 'fingerprint_pending' ? '#fff' : 'var(--text-muted)' }}>
+            <div style={{ marginTop: '1.25rem', textAlign: 'center' }}>
+              <h4 style={{ fontSize: '0.95rem', color: fpVerified ? '#ffffff' : step === 'fingerprint_pending' ? '#fff' : 'var(--text-muted)' }}>
                 {fpVerified
                   ? 'Fingerprint Verified ✓'
                   : fpScanning
@@ -494,14 +456,14 @@ export const KioskPage = ({ onClose }) => {
                   : 'Waiting for Face Recognition First'}
               </h4>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>
-                Hardware biometric reader (Windows Hello / Touch ID / Sensor)
+                Hardware biometric reader (Windows Hello / Touch ID / Touchscreen)
               </p>
             </div>
 
             <button
               onClick={handleScanFingerprint}
               disabled={step !== 'fingerprint_pending' || fpScanning || fpVerified}
-              className="btn btn-success"
+              className="btn btn-primary"
               style={{ marginTop: '1.25rem', width: '100%', padding: '0.75rem' }}
             >
               <Fingerprint size={18} />
@@ -515,20 +477,20 @@ export const KioskPage = ({ onClose }) => {
               className="glass-card"
               style={{
                 padding: '1.25rem',
-                border: '1px solid #10b981',
-                background: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid #ffffff',
+                background: 'rgba(255, 255, 255, 0.08)',
                 animation: 'slideUp 0.3s ease-out',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000000' }}>
                   <Sparkles size={20} />
                 </div>
                 <div>
                   <h4 style={{ fontSize: '0.95rem', color: '#fff', margin: 0 }}>
                     Attendance Recorded!
                   </h4>
-                  <p style={{ fontSize: '0.78rem', color: '#34d399', margin: '0.2rem 0 0' }}>
+                  <p style={{ fontSize: '0.78rem', color: '#cccccc', margin: '0.2rem 0 0' }}>
                     {verificationResult.message}
                   </p>
                 </div>

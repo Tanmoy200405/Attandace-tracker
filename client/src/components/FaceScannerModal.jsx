@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, X, Check, RefreshCw, AlertCircle, ScanFace } from 'lucide-react';
-import { captureFrameFromVideo, extractFaceDescriptor, playAudioChime } from '../utils/biometrics';
+import { captureFrameFromVideo, extractFaceDescriptor, playAudioChime, loadFaceModels } from '../utils/biometrics';
 import { api } from '../services/api';
 
 export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
@@ -19,6 +19,7 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
     }
 
     startCamera();
+    loadFaceModels(); // Preload models when modal opens
 
     return () => {
       stopCamera();
@@ -77,7 +78,7 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, 160, 160);
 
-      const descriptor = extractFaceDescriptor(canvas);
+      const descriptor = await extractFaceDescriptor(canvas);
 
       await api.staff.enrollFace(staff._id, capturedPhoto, descriptor);
       playAudioChime('success');
@@ -118,21 +119,22 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
           <div
             style={{
               position: 'relative',
-              width: '360px',
-              height: '270px',
+              width: '100%',
+              maxWidth: '380px',
+              aspectRatio: '4/3',
               borderRadius: 'var(--radius-lg)',
               overflow: 'hidden',
-              background: '#090d16',
-              border: '2px solid rgba(6, 182, 212, 0.4)',
-              boxShadow: '0 0 25px rgba(6, 182, 212, 0.2)',
+              background: '#000000',
+              border: '1px solid var(--border-light)',
+              boxShadow: '0 0 25px rgba(255, 255, 255, 0.05)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
             {cameraError ? (
-              <div style={{ padding: '1.5rem', textAlign: 'center', color: '#fca5a5' }}>
-                <AlertCircle size={32} style={{ marginBottom: '0.5rem' }} />
+              <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <AlertCircle size={32} style={{ marginBottom: '0.5rem', color: '#ffffff' }} />
                 <p style={{ fontSize: '0.85rem' }}>{cameraError}</p>
                 <button onClick={startCamera} className="btn btn-secondary" style={{ marginTop: '0.75rem', fontSize: '0.75rem' }}>
                   Retry Camera
@@ -153,15 +155,15 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
                 {/* Laser scan line animation */}
                 <div className="laser-scanner" />
 
-                {/* Oval face guide */}
+                {/* Responsive Oval face guide */}
                 <div
                   style={{
                     position: 'absolute',
-                    width: '180px',
-                    height: '220px',
+                    width: 'clamp(130px, 40vw, 180px)',
+                    height: 'clamp(160px, 50vw, 220px)',
                     borderRadius: '50%',
-                    border: '2px dashed rgba(34, 211, 238, 0.8)',
-                    boxShadow: '0 0 15px rgba(34, 211, 238, 0.4)',
+                    border: '2px dashed rgba(255, 255, 255, 0.7)',
+                    boxShadow: '0 0 15px rgba(255, 255, 255, 0.2)',
                     pointerEvents: 'none',
                   }}
                 />

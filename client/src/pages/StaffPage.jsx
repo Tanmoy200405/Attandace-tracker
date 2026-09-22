@@ -153,7 +153,7 @@ export const StaffPage = () => {
           <p style={{ color: 'var(--text-muted)' }}>No staff members found matching your filters.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+        <div className="staff-cards-grid">
           {staffList.map((staff) => {
             const faceDone = staff.biometrics?.faceEnrolled;
             const fpDone = staff.biometrics?.fingerprintEnrolled;

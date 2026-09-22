@@ -104,7 +104,7 @@ export const StaffDetailModal = ({ staffId, isOpen, onClose }) => {
               </div>
 
               {/* Stats Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              <div className="modal-stat-grid">
                 <div className="glass-card" style={{ padding: '0.875rem', textAlign: 'center' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Present</div>
                   <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#34d399' }}>{stats?.presentCount || 0}</div>

@@ -120,7 +120,7 @@ export const SettingsPage = () => {
           <span>Default Shift Schedule & Punctuality</span>
         </h3>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+        <div className="grid-2-col" style={{ marginBottom: '1rem' }}>
           <div className="form-group">
             <label className="form-label">Shift Start Time</label>
             <input

@@ -89,7 +89,7 @@ export const ManualAttendanceModal = ({ item, date, isOpen, onClose, onSuccess }
           </div>
 
           {(status === 'Present' || status === 'Late' || status === 'Half Day') && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.25rem' }}>
+            <div className="grid-2-col" style={{ marginTop: '1.25rem' }}>
               <div className="form-group">
                 <label className="form-label">Check-In Time</label>
                 <input
