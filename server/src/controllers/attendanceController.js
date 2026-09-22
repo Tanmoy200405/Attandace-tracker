@@ -2,9 +2,9 @@ import Attendance from '../models/Attendance.js';
 import Staff from '../models/Staff.js';
 import Owner from '../models/Owner.js';
 
-// Helper to format time e.g. "09:15 AM"
 const formatTime = (date = new Date()) => {
   return date.toLocaleTimeString('en-US', {
+    timeZone: 'Asia/Kolkata',
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,

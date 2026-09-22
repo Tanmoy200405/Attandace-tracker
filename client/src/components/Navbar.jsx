@@ -12,6 +12,7 @@ export const Navbar = ({ onOpenKiosk, onToggleSidebar }) => {
   }, []);
 
   const formattedTime = time.toLocaleTimeString('en-US', {
+    timeZone: 'Asia/Kolkata',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -19,6 +20,7 @@ export const Navbar = ({ onOpenKiosk, onToggleSidebar }) => {
   });
 
   const formattedDate = time.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',
