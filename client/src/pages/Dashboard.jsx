@@ -78,20 +78,20 @@ export const Dashboard = ({ setTab }) => {
       </div>
 
       {/* KPI Stats Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
+      <div className="stat-grid" style={{ marginBottom: '2rem' }}>
         <StatCard
           title="Total Staff"
           value={summary.totalStaff}
           subtext="Active employees registered"
           icon={Users}
-          color="#818cf8"
+          color="#cccccc"
         />
         <StatCard
           title="Present Today"
           value={summary.present}
           subtext="Clocked in punctually"
           icon={CheckCircle2}
-          color="#34d399"
+          color="#ffffff"
           trend="+ On Time"
         />
         <StatCard
@@ -99,21 +99,21 @@ export const Dashboard = ({ setTab }) => {
           value={summary.late}
           subtext="After scheduled shift start"
           icon={Clock}
-          color="#fbbf24"
+          color="#aaaaaa"
         />
         <StatCard
           title="Unmarked / Absent"
           value={summary.unmarked + summary.absent}
           subtext="Yet to verify biometrics"
           icon={AlertCircle}
-          color="#f87171"
+          color="#888888"
         />
         <StatCard
           title="Attendance Rate"
           value={`${summary.attendanceRate}%`}
           subtext="Present & Late vs Total"
           icon={TrendingUp}
-          color="#38bdf8"
+          color="#dddddd"
         />
       </div>
 

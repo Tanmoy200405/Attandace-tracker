@@ -13,6 +13,7 @@ import { LoginPage } from './pages/LoginPage';
 export const App = () => {
   const { isAuthenticated, loading } = useAuth();
   const [currentTab, setTab] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (loading) {
     return (
@@ -28,7 +29,7 @@ export const App = () => {
         }}
       >
         <div style={{ textAlign: 'center' }}>
-          <div className="pulse-ring" style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#4f46e5', margin: '0 auto 1rem' }} />
+          <div className="pulse-ring" style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#ffffff', margin: '0 auto 1rem' }} />
           <span>Starting BioTrack Biometric System...</span>
         </div>
       </div>
@@ -39,18 +40,31 @@ export const App = () => {
     return <LoginPage />;
   }
 
+  const handleTabChange = (tab) => {
+    setTab(tab);
+    setSidebarOpen(false); // close sidebar on mobile when navigating
+  };
+
   return (
     <div className="app-container">
-      <Sidebar currentTab={currentTab} setTab={setTab} />
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <Sidebar currentTab={currentTab} setTab={handleTabChange} isOpen={sidebarOpen} />
 
       <div className="main-content">
-        <Navbar onOpenKiosk={() => setTab('kiosk')} />
+        <Navbar onOpenKiosk={() => handleTabChange('kiosk')} onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
         <main style={{ flex: 1 }}>
-          {currentTab === 'dashboard' && <Dashboard setTab={setTab} />}
+          {currentTab === 'dashboard' && <Dashboard setTab={handleTabChange} />}
           {currentTab === 'attendance' && <AttendancePage />}
           {currentTab === 'staff' && <StaffPage />}
-          {currentTab === 'kiosk' && <KioskPage onClose={() => setTab('dashboard')} />}
+          {currentTab === 'kiosk' && <KioskPage onClose={() => handleTabChange('dashboard')} />}
           {currentTab === 'reports' && <ReportsPage />}
           {currentTab === 'settings' && <SettingsPage />}
         </main>

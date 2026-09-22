@@ -7,9 +7,10 @@ import {
   BarChart3,
   Settings,
   Fingerprint,
+  X,
 } from 'lucide-react';
 
-export const Sidebar = ({ currentTab, setTab }) => {
+export const Sidebar = ({ currentTab, setTab, isOpen }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'attendance', label: 'Daily Attendance', icon: CalendarCheck },
@@ -21,18 +22,19 @@ export const Sidebar = ({ currentTab, setTab }) => {
 
   return (
     <aside
-      className="glass"
-      style={{
-        width: '240px',
-        borderRight: '1px solid var(--border)',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '1.5rem 1rem',
-        gap: '0.5rem',
-      }}
+      className={`glass sidebar ${isOpen ? 'sidebar-open' : ''}`}
     >
-      <div style={{ padding: '0 0.5rem 1rem', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-dim)' }}>
-        Management
+      <div className="sidebar-header">
+        <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-dim)' }}>
+          Management
+        </span>
+        <button
+          className="sidebar-close-btn"
+          onClick={() => setTab(currentTab)}
+          aria-label="Close menu"
+        >
+          <X size={20} />
+        </button>
       </div>
 
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1 }}>
@@ -53,14 +55,10 @@ export const Sidebar = ({ currentTab, setTab }) => {
                 fontWeight: isActive ? 600 : 500,
                 color: isActive ? '#fff' : 'var(--text-muted)',
                 background: isActive
-                  ? item.highlight
-                    ? 'linear-gradient(135deg, rgba(6, 182, 212, 0.25) 0%, rgba(59, 130, 246, 0.25) 100%)'
-                    : 'rgba(79, 70, 229, 0.15)'
+                  ? 'rgba(255, 255, 255, 0.1)'
                   : 'transparent',
                 border: isActive
-                  ? item.highlight
-                    ? '1px solid rgba(6, 182, 212, 0.4)'
-                    : '1px solid rgba(79, 70, 229, 0.3)'
+                  ? '1px solid rgba(255, 255, 255, 0.2)'
                   : '1px solid transparent',
                 cursor: 'pointer',
                 textAlign: 'left',
@@ -70,7 +68,7 @@ export const Sidebar = ({ currentTab, setTab }) => {
             >
               <Icon
                 size={18}
-                color={isActive ? (item.highlight ? '#22d3ee' : '#818cf8') : 'currentColor'}
+                color={isActive ? '#ffffff' : 'currentColor'}
               />
               <span style={{ flex: 1 }}>{item.label}</span>
               {item.highlight && (
@@ -79,8 +77,8 @@ export const Sidebar = ({ currentTab, setTab }) => {
                     width: '6px',
                     height: '6px',
                     borderRadius: '50%',
-                    background: '#22d3ee',
-                    boxShadow: '0 0 8px #22d3ee',
+                    background: '#ffffff',
+                    boxShadow: '0 0 8px rgba(255,255,255,0.5)',
                   }}
                 />
               )}
@@ -91,16 +89,10 @@ export const Sidebar = ({ currentTab, setTab }) => {
 
       {/* Biometric Status Summary Box */}
       <div
-        className="glass-card"
-        style={{
-          padding: '1rem',
-          borderRadius: 'var(--radius-md)',
-          background: 'rgba(31, 41, 55, 0.4)',
-          border: '1px solid var(--border)',
-        }}
+        className="glass-card sidebar-bio-card"
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-          <Fingerprint size={16} color="#06b6d4" />
+          <Fingerprint size={16} color="#cccccc" />
           <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#f3f4f6' }}>Biometric Engine</span>
         </div>
         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>

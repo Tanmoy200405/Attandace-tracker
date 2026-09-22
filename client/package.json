@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@vladmandic/face-api": "^1.7.15",
     "canvas-confetti": "^1.9.4",
     "lucide-react": "^1.16.0",
     "react": "^18.3.1",
