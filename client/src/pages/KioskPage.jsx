@@ -89,26 +89,38 @@ export const KioskPage = ({ onClose }) => {
       }
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setCameraError('Live camera not supported by this browser. Tap "Capture with Phone Camera" below.');
+        setCameraError('Live camera stream not supported by this browser. Tap "Capture with Phone Camera" below.');
         setCameraActive(false);
         return;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
-        audio: false,
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      // Attempt standard video constraints first, fallback if specific facingMode/dimensions fail
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       }
+
+      streamRef.current = stream;
       setCameraActive(true);
+
+      // Attach stream to video element once state updates DOM
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch((e) => console.log('Video play error:', e));
+        }
+      }, 50);
     } catch (err) {
-      console.warn('Kiosk camera access warning:', err.message);
+      console.warn('Kiosk camera access error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setCameraError('Camera permission denied by browser. Please allow camera in settings or use "Capture with Phone Camera".');
+        setCameraError('Camera access denied by browser. Please grant camera permission in site settings or tap "Capture with Phone Camera".');
       } else {
-        setCameraError('Live camera not detected. Tap "Capture with Phone Camera" or click Activate Webcam.');
+        setCameraError(`Camera error (${err.name || 'Unavailable'}). Tap "Activate Live Stream" or "Capture with Phone Camera".`);
       }
       setCameraActive(false);
     }
