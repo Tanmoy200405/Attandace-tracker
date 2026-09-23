@@ -1,6 +1,6 @@
 {
   "appId": "com.biotrack.attendance",
-  "appName": "BioTrack Attendance",
+  "appName": "Biometric App",
   "webDir": "dist",
   "server": {
     "androidScheme": "https",

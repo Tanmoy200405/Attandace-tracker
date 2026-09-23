@@ -14,48 +14,163 @@ export const captureFrameFromVideo = (videoElement) => {
 
 import * as faceapi from '@vladmandic/face-api';
 
-let modelsLoaded = false;
-
-// Initialize face-api models
-export const loadFaceModels = async () => {
-  if (modelsLoaded) return true;
-  try {
-    const modelPath = '/models';
-    await Promise.all([
-      faceapi.nets.ssdMobilenetv1.loadFromUri(modelPath),
-      faceapi.nets.faceLandmark68Net.loadFromUri(modelPath),
-      faceapi.nets.faceRecognitionNet.loadFromUri(modelPath)
-    ]);
-    modelsLoaded = true;
-    console.log('Face models loaded successfully');
-    return true;
-  } catch (err) {
-    console.error('Error loading face models:', err);
-    return false;
-  }
+// Helper to ensure image is completely loaded
+const ensureImageLoaded = (img) => {
+  return new Promise((resolve, reject) => {
+    if (img.complete && img.naturalWidth !== 0) {
+      resolve(img);
+      return;
+    }
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+  });
 };
 
-// 2. Extract feature vector descriptor from video/canvas
-export const extractFaceDescriptor = async (videoOrCanvas) => {
+// Initialize face-api models with multiple URI fallbacks
+export const loadFaceModels = async () => {
+  if (modelsLoaded) return true;
+  
+  const possiblePaths = [
+    '/models',
+    './models',
+    `${window.location.origin}/models`,
+    'models'
+  ];
+
+  for (const modelPath of possiblePaths) {
+    try {
+      console.log(`Attempting to load face models from: ${modelPath}`);
+      await Promise.all([
+        faceapi.nets.ssdMobilenetv1.loadFromUri(modelPath),
+        faceapi.nets.faceLandmark68Net.loadFromUri(modelPath),
+        faceapi.nets.faceRecognitionNet.loadFromUri(modelPath)
+      ]);
+      modelsLoaded = true;
+      console.log(`Face models loaded successfully from ${modelPath}`);
+      return true;
+    } catch (err) {
+      console.warn(`Could not load models from ${modelPath}:`, err.message || err);
+    }
+  }
+
+  console.error('All model loading paths failed.');
+  return false;
+};
+
+// Helper to prepare an optimal canvas from Image, Video, or Canvas
+const prepareOptimalCanvas = (source) => {
+  let width = 0;
+  let height = 0;
+
+  if (source instanceof HTMLVideoElement) {
+    width = source.videoWidth || 640;
+    height = source.videoHeight || 480;
+  } else if (source instanceof HTMLImageElement) {
+    width = source.naturalWidth || source.width || 640;
+    height = source.naturalHeight || source.height || 480;
+  } else if (source instanceof HTMLCanvasElement) {
+    width = source.width || 640;
+    height = source.height || 480;
+  }
+
+  if (width === 0 || height === 0) {
+    width = 640;
+    height = 480;
+  }
+
+  // Scale down large camera photos (e.g. 12MP/4K phone camera photos) to max 800px for optimal face-api detection
+  const MAX_DIM = 800;
+  let targetWidth = width;
+  let targetHeight = height;
+
+  if (Math.max(width, height) > MAX_DIM) {
+    const scale = MAX_DIM / Math.max(width, height);
+    targetWidth = Math.round(width * scale);
+    targetHeight = Math.round(height * scale);
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext('2d');
+  
+  // Smooth rendering
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, 0, 0, targetWidth, targetHeight);
+
+  return canvas;
+};
+
+// 2. Extract feature vector descriptor from video, image, or canvas
+export const extractFaceDescriptor = async (videoOrImageOrCanvas) => {
   try {
     if (!modelsLoaded) {
       const loaded = await loadFaceModels();
-      if (!loaded) throw new Error('Models failed to load');
+      if (!loaded) {
+        console.error('Face models are not loaded. Cannot extract descriptor.');
+        return null;
+      }
     }
 
-    // Detect a single face with landmarks and descriptor
-    const detection = await faceapi
-      .detectSingleFace(videoOrCanvas, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
-      .withFaceLandmarks()
-      .withFaceDescriptor();
-
-    if (!detection) {
-      console.warn('No face detected in frame');
+    if (!videoOrImageOrCanvas) {
+      console.warn('No media element provided to extractFaceDescriptor');
       return null;
     }
 
-    // Convert Float32Array to standard array for JSON serialization/storage
-    return Array.from(detection.descriptor);
+    // If it is an image, make sure it is fully loaded first
+    if (videoOrImageOrCanvas instanceof HTMLImageElement) {
+      await ensureImageLoaded(videoOrImageOrCanvas);
+    }
+
+    // Convert source to normalized canvas
+    const canvas = prepareOptimalCanvas(videoOrImageOrCanvas);
+
+    // Multi-tier detection: try descending confidence thresholds to detect faces in varying light/angles
+    const confidenceThresholds = [0.45, 0.25, 0.15, 0.08];
+
+    for (const minConfidence of confidenceThresholds) {
+      try {
+        const detection = await faceapi
+          .detectSingleFace(canvas, new faceapi.SsdMobilenetv1Options({ minConfidence }))
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        if (detection && detection.descriptor) {
+          console.log(`Single face detected (confidence threshold: ${minConfidence}, score: ${detection.detection.score?.toFixed(2)})`);
+          return Array.from(detection.descriptor);
+        }
+      } catch (e) {
+        console.warn(`Detection attempt at confidence ${minConfidence} failed:`, e);
+      }
+    }
+
+    // Fallback: Try detectAllFaces and pick the largest detected face (helpful in complex backgrounds)
+    for (const minConfidence of [0.25, 0.15, 0.08]) {
+      try {
+        const allDetections = await faceapi
+          .detectAllFaces(canvas, new faceapi.SsdMobilenetv1Options({ minConfidence }))
+          .withFaceLandmarks()
+          .withFaceDescriptors();
+
+        if (allDetections && allDetections.length > 0) {
+          // Sort by bounding box area (largest face in foreground)
+          allDetections.sort((a, b) => {
+            const areaA = a.detection.box.width * a.detection.box.height;
+            const areaB = b.detection.box.width * b.detection.box.height;
+            return areaB - areaA;
+          });
+
+          console.log(`Face detected via fallback detectAllFaces (picked largest face of ${allDetections.length})`);
+          return Array.from(allDetections[0].descriptor);
+        }
+      } catch (e) {
+        console.warn(`Fallback detectAllFaces attempt at confidence ${minConfidence} failed:`, e);
+      }
+    }
+
+    console.warn('No face detected in frame after all confidence level scans.');
+    return null;
   } catch (err) {
     console.error('Feature descriptor extraction error:', err);
     return null;

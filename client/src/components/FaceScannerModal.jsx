@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, X, Check, RefreshCw, AlertCircle, ScanFace } from 'lucide-react';
+import { Camera, X, Check, RefreshCw, AlertCircle, ScanFace, SwitchCamera } from 'lucide-react';
 import { captureFrameFromVideo, extractFaceDescriptor, playAudioChime, loadFaceModels } from '../utils/biometrics';
 import { api } from '../services/api';
 
@@ -8,10 +8,11 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [loading, setLoading] = useState(false);
   const [cameraError, setCameraError] = useState(null);
+  const [facingMode, setFacingMode] = useState('user');
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Initialize camera stream when modal opens
+  // Initialize camera stream when modal opens or facingMode changes
   useEffect(() => {
     if (!isOpen) {
       stopCamera();
@@ -25,10 +26,11 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
     return () => {
       stopCamera();
     };
-  }, [isOpen]);
+  }, [isOpen, facingMode]);
 
   const startCamera = async () => {
     setCameraError(null);
+    stopCamera();
     try {
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const isHttps = window.location.protocol === 'https:';
@@ -44,7 +46,7 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
       }
 
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: facingMode },
         audio: false,
       });
       setStream(mediaStream);
@@ -55,6 +57,10 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
       console.warn('Webcam permission error:', err);
       setCameraError('Camera access not granted or unavailable on this device. You can take a photo directly with your phone camera.');
     }
+  };
+
+  const toggleCameraFacing = () => {
+    setFacingMode((prev) => (prev === 'user' ? 'environment' : 'user'));
   };
 
   const stopCamera = () => {
@@ -199,8 +205,39 @@ export const FaceScannerModal = ({ staff, isOpen, onClose, onSuccess }) => {
                   autoPlay
                   playsInline
                   muted
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
+                  }}
                 />
+
+                {/* Flip camera button */}
+                <button
+                  onClick={toggleCameraFacing}
+                  className="btn btn-secondary"
+                  style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    padding: '0.4rem 0.6rem',
+                    borderRadius: '20px',
+                    background: 'rgba(0, 0, 0, 0.6)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    fontSize: '0.75rem',
+                    zIndex: 10,
+                  }}
+                  title="Flip Front / Rear Camera"
+                >
+                  <SwitchCamera size={14} />
+                  <span>{facingMode === 'user' ? 'Rear' : 'Front'}</span>
+                </button>
 
                 {/* Laser scan line animation */}
                 <div className="laser-scanner" />
