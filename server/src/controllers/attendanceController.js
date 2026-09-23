@@ -1,6 +1,7 @@
 import Attendance from '../models/Attendance.js';
 import Staff from '../models/Staff.js';
 import Owner from '../models/Owner.js';
+import { uploadBase64ToCloudinary } from '../config/cloudinary.js';
 
 const formatTime = (date = new Date()) => {
   return date.toLocaleTimeString('en-US', {
@@ -327,6 +328,15 @@ export const biometricVerifyAndMark = async (req, res) => {
     const formattedShiftStart = formatMinutesTo12Hr(shiftStartMin);
     const formattedShiftEnd = formatMinutesTo12Hr(shiftEndMin);
 
+    let finalSnapshotUrl = snapshotUrl || staff.biometrics?.facePhoto || '';
+    if (process.env.CLOUDINARY_CLOUD_NAME && snapshotUrl && !snapshotUrl.startsWith('http')) {
+      try {
+        finalSnapshotUrl = await uploadBase64ToCloudinary(snapshotUrl, 'attendance_snapshots');
+      } catch (err) {
+        console.error('Failed to upload snapshot to Cloudinary:', err.message);
+      }
+    }
+
     if (!record) {
       // New check-in
       const initialStatus = isLateArrival ? 'Late' : 'Present';
@@ -336,7 +346,7 @@ export const biometricVerifyAndMark = async (req, res) => {
         status: initialStatus,
         checkIn: currentTimeStr,
         verificationMethod: finalMethod,
-        snapshotUrl: snapshotUrl || staff.biometrics.facePhoto || '',
+        snapshotUrl: finalSnapshotUrl,
         confidenceScore: faceScore || 98.4,
         notes: isLateArrival
           ? `Late arrival (${lateMinutes} mins after shift start ${formattedShiftStart})`
@@ -364,7 +374,7 @@ export const biometricVerifyAndMark = async (req, res) => {
     if (targetAction === 'check-out') {
       record.checkOut = currentTimeStr;
       record.workHours = calculateHours(record.checkIn, currentTimeStr);
-      if (snapshotUrl) record.snapshotUrl = snapshotUrl;
+      if (finalSnapshotUrl) record.snapshotUrl = finalSnapshotUrl;
 
       // Overtime calculation
       let isOvertime = false;
@@ -398,7 +408,7 @@ export const biometricVerifyAndMark = async (req, res) => {
       record.checkIn = currentTimeStr;
       record.status = isLateArrival ? 'Late' : 'Present';
       record.verificationMethod = finalMethod;
-      if (snapshotUrl) record.snapshotUrl = snapshotUrl;
+      if (finalSnapshotUrl) record.snapshotUrl = finalSnapshotUrl;
       record.notes = isLateArrival
         ? `Late arrival (${lateMinutes} mins after shift start ${formattedShiftStart})`
         : 'Punctual biometric check-in';

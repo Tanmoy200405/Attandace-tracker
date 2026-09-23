@@ -1,5 +1,6 @@
 import Staff from '../models/Staff.js';
 import Attendance from '../models/Attendance.js';
+import { uploadBase64ToCloudinary } from '../config/cloudinary.js';
 
 // @desc    Get all staff members
 // @route   GET /api/staff
@@ -180,8 +181,13 @@ export const enrollFace = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Staff member not found' });
     }
 
+    let photoUrl = facePhoto;
+    if (process.env.CLOUDINARY_CLOUD_NAME && facePhoto && !facePhoto.startsWith('http')) {
+      photoUrl = await uploadBase64ToCloudinary(facePhoto, 'staff_faces');
+    }
+
     staff.biometrics.faceEnrolled = true;
-    staff.biometrics.facePhoto = facePhoto;
+    staff.biometrics.facePhoto = photoUrl;
     if (faceDescriptor && Array.isArray(faceDescriptor)) {
       staff.biometrics.faceDescriptor = faceDescriptor;
     }
