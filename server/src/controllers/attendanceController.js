@@ -212,7 +212,9 @@ export const biometricVerifyAndMark = async (req, res) => {
     }
 
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    // Use IST date, not UTC date (IST is UTC+5:30)
+    const today = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+      .toISOString().split('T')[0];
     const currentTimeStr = formatTime(now);
 
     // Get owner shift settings
@@ -220,10 +222,19 @@ export const biometricVerifyAndMark = async (req, res) => {
     const shiftStart = owner?.shiftStart || '09:00';
     const graceMinutes = owner?.gracePeriodMinutes ?? 15;
 
-    // Determine if late
+    // Determine if late — use IST (Asia/Kolkata) time, NOT UTC
     const [startH, startM] = shiftStart.split(':').map(Number);
     const shiftStartTotalMin = startH * 60 + startM + graceMinutes;
-    const currentTotalMin = now.getHours() * 60 + now.getMinutes();
+
+    // Extract IST hours and minutes from the current time
+    const istTimeStr = now.toLocaleString('en-US', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const [istHours, istMinutes] = istTimeStr.split(':').map(Number);
+    const currentTotalMin = istHours * 60 + istMinutes;
     const isLateArrival = currentTotalMin > shiftStartTotalMin;
 
     let record = await Attendance.findOne({ staffId: staff._id, date: today });

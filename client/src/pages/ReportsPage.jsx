@@ -55,7 +55,7 @@ export const ReportsPage = () => {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  const departments = ['All', 'Engineering', 'Sales', 'Marketing', 'Operations', 'Design', 'HR', 'Support', 'Finance'];
+  const departments = ['All'];
 
   // Status indicator dot
   const renderStatusDot = (dayData) => {
