@@ -135,70 +135,14 @@ export const AttendancePage = () => {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Date</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Selected Date</div>
             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>{formatIndianDate(selectedDate)}</div>
           </div>
           <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: '1.5rem' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Present</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Present Count</div>
             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#34d399' }}>{summary.present}</div>
           </div>
-          <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: '1.5rem' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Late</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fbbf24' }}>{summary.late}</div>
-          </div>
-          <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: '1.5rem' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Absent</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f87171' }}>{summary.absent}</div>
-          </div>
-          <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: '1.5rem' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Rate</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#38bdf8' }}>{summary.attendanceRate}%</div>
-          </div>
         </div>
-
-        {/* Quick Bulk Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <button
-            onClick={() => handleBulkMark('Present')}
-            className="btn btn-success"
-            style={{ fontSize: '0.75rem', padding: '0.45rem 0.85rem' }}
-          >
-            <CheckCheck size={14} />
-            <span>Mark Unmarked Present</span>
-          </button>
-          <button
-            onClick={() => handleBulkMark('Absent')}
-            className="btn btn-danger"
-            style={{ fontSize: '0.75rem', padding: '0.45rem 0.85rem' }}
-          >
-            <span>Mark Unmarked Absent</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Department Filter Bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', overflowX: 'auto' }}>
-        <Filter size={15} color="var(--text-dim)" />
-        {departments.map((dept) => (
-          <button
-            key={dept}
-            onClick={() => setDepartment(dept)}
-            style={{
-              padding: '0.3rem 0.75rem',
-              borderRadius: '9999px',
-              border: '1px solid',
-              borderColor: department === dept ? 'var(--primary)' : 'var(--border)',
-              background: department === dept ? 'rgba(79, 70, 229, 0.2)' : 'transparent',
-              color: department === dept ? '#fff' : 'var(--text-muted)',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {dept}
-          </button>
-        ))}
       </div>
 
       {/* Attendance Table */}

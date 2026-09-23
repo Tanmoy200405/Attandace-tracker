@@ -12,6 +12,7 @@ import {
   ArrowRight,
   ShieldCheck,
   UserCheck,
+  SwitchCamera,
 } from 'lucide-react';
 import { api } from '../services/api';
 import {
@@ -40,6 +41,7 @@ export const KioskPage = ({ onClose }) => {
   const [verificationError, setVerificationError] = useState(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
+  const [facingMode, setFacingMode] = useState('user'); // 'user' (front) or 'environment' (back)
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -74,8 +76,9 @@ export const KioskPage = ({ onClose }) => {
     };
   }, []);
 
-  const startCamera = async () => {
+  const startCamera = async (mode = facingMode) => {
     setCameraError(null);
+    stopCamera();
     try {
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const isHttps = window.location.protocol === 'https:';
@@ -94,11 +97,10 @@ export const KioskPage = ({ onClose }) => {
         return;
       }
 
-      // Attempt standard video constraints first, fallback if specific facingMode/dimensions fail
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+          video: { facingMode: mode, width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false,
         });
       } catch {
@@ -108,7 +110,6 @@ export const KioskPage = ({ onClose }) => {
       streamRef.current = stream;
       setCameraActive(true);
 
-      // Attach stream to video element once state updates DOM
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -124,6 +125,12 @@ export const KioskPage = ({ onClose }) => {
       }
       setCameraActive(false);
     }
+  };
+
+  const flipCamera = () => {
+    const newMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newMode);
+    startCamera(newMode);
   };
 
   const handleNativeCapture = async (e) => {
@@ -466,12 +473,25 @@ export const KioskPage = ({ onClose }) => {
               <ScanFace size={20} color="#ffffff" />
               <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Step 1: Face Recognition</h3>
             </div>
-            {cameraActive && (
-              <span className="badge badge-present" style={{ fontSize: '0.7rem' }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ffffff' }} />
-                Camera Stream Active
-              </span>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {cameraActive && (
+                <button
+                  onClick={flipCamera}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                  title="Switch between front and back camera"
+                >
+                  <SwitchCamera size={14} />
+                  <span>Flip Camera</span>
+                </button>
+              )}
+              {cameraActive && (
+                <span className="badge badge-present" style={{ fontSize: '0.7rem' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ffffff' }} />
+                  Active ({facingMode === 'user' ? 'Front' : 'Back'})
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Camera Box */}
@@ -483,7 +503,12 @@ export const KioskPage = ({ onClose }) => {
                   autoPlay
                   playsInline
                   muted
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
+                  }}
                 />
 
                 {/* Laser scan animation */}
