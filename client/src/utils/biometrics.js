@@ -14,6 +14,8 @@ export const captureFrameFromVideo = (videoElement) => {
 
 import * as faceapi from '@vladmandic/face-api';
 
+let modelsLoaded = false;
+
 // Helper to ensure image is completely loaded
 const ensureImageLoaded = (img) => {
   return new Promise((resolve, reject) => {
