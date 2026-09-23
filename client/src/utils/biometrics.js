@@ -40,8 +40,10 @@ export const loadFaceModels = async () => {
   for (const modelPath of possiblePaths) {
     try {
       console.log(`Attempting to load face models from: ${modelPath}`);
+      // Load Tiny Face Detector first (lightweight & fast for mobile), along with landmarks and recognition
       await Promise.all([
-        faceapi.nets.ssdMobilenetv1.loadFromUri(modelPath),
+        faceapi.nets.tinyFaceDetector.loadFromUri(modelPath).catch((e) => console.warn('TinyFaceDetector load error:', e)),
+        faceapi.nets.ssdMobilenetv1.loadFromUri(modelPath).catch((e) => console.warn('SsdMobilenet load error:', e)),
         faceapi.nets.faceLandmark68Net.loadFromUri(modelPath),
         faceapi.nets.faceRecognitionNet.loadFromUri(modelPath)
       ]);
@@ -126,50 +128,68 @@ export const extractFaceDescriptor = async (videoOrImageOrCanvas) => {
     // Convert source to normalized canvas
     const canvas = prepareOptimalCanvas(videoOrImageOrCanvas);
 
-    // Multi-tier detection: try descending confidence thresholds to detect faces in varying light/angles
-    const confidenceThresholds = [0.45, 0.25, 0.15, 0.08];
+    // 1. Stage 1: Try TinyFaceDetector first (optimized for mobile webcams and phone cameras)
+    if (faceapi.nets.tinyFaceDetector.isLoaded) {
+      for (const scoreThreshold of [0.35, 0.2, 0.1]) {
+        try {
+          const detection = await faceapi
+            .detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions({ scoreThreshold, inputSize: 320 }))
+            .withFaceLandmarks()
+            .withFaceDescriptor();
 
-    for (const minConfidence of confidenceThresholds) {
-      try {
-        const detection = await faceapi
-          .detectSingleFace(canvas, new faceapi.SsdMobilenetv1Options({ minConfidence }))
-          .withFaceLandmarks()
-          .withFaceDescriptor();
-
-        if (detection && detection.descriptor) {
-          console.log(`Single face detected (confidence threshold: ${minConfidence}, score: ${detection.detection.score?.toFixed(2)})`);
-          return Array.from(detection.descriptor);
+          if (detection && detection.descriptor) {
+            console.log(`Face detected via TinyFaceDetector (scoreThreshold: ${scoreThreshold}, score: ${detection.detection?.score?.toFixed(2)})`);
+            return Array.from(detection.descriptor);
+          }
+        } catch (e) {
+          console.warn(`TinyFaceDetector attempt at ${scoreThreshold} failed:`, e);
         }
-      } catch (e) {
-        console.warn(`Detection attempt at confidence ${minConfidence} failed:`, e);
       }
     }
 
-    // Fallback: Try detectAllFaces and pick the largest detected face (helpful in complex backgrounds)
-    for (const minConfidence of [0.25, 0.15, 0.08]) {
-      try {
-        const allDetections = await faceapi
-          .detectAllFaces(canvas, new faceapi.SsdMobilenetv1Options({ minConfidence }))
-          .withFaceLandmarks()
-          .withFaceDescriptors();
+    // 2. Stage 2: Try SsdMobilenetv1 with multi-tier confidence levels
+    if (faceapi.nets.ssdMobilenetv1.isLoaded) {
+      for (const minConfidence of [0.35, 0.2, 0.1]) {
+        try {
+          const detection = await faceapi
+            .detectSingleFace(canvas, new faceapi.SsdMobilenetv1Options({ minConfidence }))
+            .withFaceLandmarks()
+            .withFaceDescriptor();
 
-        if (allDetections && allDetections.length > 0) {
-          // Sort by bounding box area (largest face in foreground)
-          allDetections.sort((a, b) => {
-            const areaA = a.detection.box.width * a.detection.box.height;
-            const areaB = b.detection.box.width * b.detection.box.height;
-            return areaB - areaA;
-          });
-
-          console.log(`Face detected via fallback detectAllFaces (picked largest face of ${allDetections.length})`);
-          return Array.from(allDetections[0].descriptor);
+          if (detection && detection.descriptor) {
+            console.log(`Face detected via SsdMobilenetv1 (confidence: ${minConfidence}, score: ${detection.detection?.score?.toFixed(2)})`);
+            return Array.from(detection.descriptor);
+          }
+        } catch (e) {
+          console.warn(`SsdMobilenetv1 attempt at confidence ${minConfidence} failed:`, e);
         }
-      } catch (e) {
-        console.warn(`Fallback detectAllFaces attempt at confidence ${minConfidence} failed:`, e);
+      }
+
+      // 3. Stage 3: Fallback to detectAllFaces and select the largest face
+      for (const minConfidence of [0.2, 0.1]) {
+        try {
+          const allDetections = await faceapi
+            .detectAllFaces(canvas, new faceapi.SsdMobilenetv1Options({ minConfidence }))
+            .withFaceLandmarks()
+            .withFaceDescriptors();
+
+          if (allDetections && allDetections.length > 0) {
+            allDetections.sort((a, b) => {
+              const areaA = a.detection.box.width * a.detection.box.height;
+              const areaB = b.detection.box.width * b.detection.box.height;
+              return areaB - areaA;
+            });
+
+            console.log(`Face detected via fallback detectAllFaces (picked largest of ${allDetections.length})`);
+            return Array.from(allDetections[0].descriptor);
+          }
+        } catch (e) {
+          console.warn(`Fallback detectAllFaces attempt at confidence ${minConfidence} failed:`, e);
+        }
       }
     }
 
-    console.warn('No face detected in frame after all confidence level scans.');
+    console.warn('No face detected in frame after all detector passes.');
     return null;
   } catch (err) {
     console.error('Feature descriptor extraction error:', err);
