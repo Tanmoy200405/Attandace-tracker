@@ -32,6 +32,24 @@ export const KioskPage = ({ onClose }) => {
   const [verifyMode, setVerifyMode] = useState('face_only'); // 'face_only', 'fingerprint_only', 'biometric_dual'
   const [todayStaffRecord, setTodayStaffRecord] = useState(null);
 
+  // Verification state machine
+  // 'idle' -> 'face_detected' -> 'fingerprint_pending' -> 'verified'
+  const [step, setStep] = useState('idle');
+  const [selectedStaff, setSelectedStaff] = useState(null);
+  const [faceScore, setFaceScore] = useState(null);
+  const [snapshotPhoto, setSnapshotPhoto] = useState(null);
+  const [fpScanning, setFpScanning] = useState(false);
+  const [fpVerified, setFpVerified] = useState(false);
+  const [verificationResult, setVerificationResult] = useState(null);
+  const [verificationError, setVerificationError] = useState(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState(null);
+  const [facingMode, setFacingMode] = useState('user'); // 'user' (front) or 'environment' (back)
+
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const fileInputRef = useRef(null);
+
   // Auto-detect if selectedStaff already clocked in today, auto-switch action to 'check-out'
   useEffect(() => {
     if (!selectedStaff) return;
@@ -59,24 +77,6 @@ export const KioskPage = ({ onClose }) => {
     };
     checkTodayStatus();
   }, [selectedStaff]);
-
-  // Verification state machine
-  // 'idle' -> 'face_detected' -> 'fingerprint_pending' -> 'verified'
-  const [step, setStep] = useState('idle');
-  const [selectedStaff, setSelectedStaff] = useState(null);
-  const [faceScore, setFaceScore] = useState(null);
-  const [snapshotPhoto, setSnapshotPhoto] = useState(null);
-  const [fpScanning, setFpScanning] = useState(false);
-  const [fpVerified, setFpVerified] = useState(false);
-  const [verificationResult, setVerificationResult] = useState(null);
-  const [verificationError, setVerificationError] = useState(null);
-  const [cameraActive, setCameraActive] = useState(false);
-  const [cameraError, setCameraError] = useState(null);
-  const [facingMode, setFacingMode] = useState('user'); // 'user' (front) or 'environment' (back)
-
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const fileInputRef = useRef(null);
 
   // Fetch enrolled staff list & preload models
   useEffect(() => {

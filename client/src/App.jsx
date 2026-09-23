@@ -8,6 +8,7 @@ import { StaffPage } from './pages/StaffPage';
 import { KioskPage } from './pages/KioskPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { LoginPage } from './pages/LoginPage';
 import { LogIn } from 'lucide-react';
 
 const AdminLogin = ({ setTab }) => {
@@ -93,7 +94,7 @@ export const App = () => {
   }
 
   if (!isAuthenticated) {
-    return null; // Should not happen since default is staff
+    return <LoginPage />;
   }
 
   const handleTabChange = (tab) => {
