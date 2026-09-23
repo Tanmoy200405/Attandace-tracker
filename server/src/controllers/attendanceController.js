@@ -45,21 +45,40 @@ export const getAttendanceByDate = async (req, res) => {
       attendanceMap.set(rec.staffId.toString(), rec);
     });
 
-    // Merge staff with their attendance record
+    const todayStr = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+      .toISOString().split('T')[0];
+
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const [y, m, d] = date.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    const dayOfWeek = dayNames[dateObj.getDay()];
+
+    // Merge staff with their attendance record & auto-mark Absent on working days
     const mergedList = allStaff.map((staff) => {
       const record = attendanceMap.get(staff._id.toString());
+      const isWeeklyOff = (staff.weeklyOff || 'Sunday').toLowerCase() === dayOfWeek.toLowerCase();
+
+      let computedStatus = 'Unmarked';
+      if (record) {
+        computedStatus = record.status;
+      } else if (isWeeklyOff) {
+        computedStatus = 'Weekly Off';
+      } else if (date <= todayStr) {
+        computedStatus = 'Absent';
+      }
+
       return {
         staff,
         attendance: record || null,
-        status: record ? record.status : 'Unmarked',
+        status: computedStatus,
         checkIn: record ? record.checkIn : null,
         checkOut: record ? record.checkOut : null,
         workHours: record ? record.workHours : 0,
         overtimeHours: record ? record.overtimeHours || 0 : 0,
-        verificationMethod: record ? record.verificationMethod : null,
+        verificationMethod: record ? record.verificationMethod : (isWeeklyOff ? 'scheduled_off' : 'unmarked'),
         snapshotUrl: record ? record.snapshotUrl : null,
         confidenceScore: record ? record.confidenceScore : null,
-        notes: record ? record.notes : '',
+        notes: record ? record.notes : (computedStatus === 'Absent' ? 'Auto-marked Absent (No biometric clock-in)' : ''),
       };
     });
 
@@ -198,43 +217,73 @@ const formatMinutesTo12Hr = (totalMin) => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${modifier}`;
 };
 
-// @desc    Biometric Verify & Mark Attendance (Face + Fingerprint)
+// @desc    Biometric Verify & Mark Attendance (Face OR Fingerprint OR Dual)
 // @route   POST /api/attendance/biometric-verify
 export const biometricVerifyAndMark = async (req, res) => {
   try {
-    const { staffId, faceScore, fingerprintVerified, snapshotUrl, action } = req.body;
+    const { staffId, faceScore, fingerprintVerified, snapshotUrl, action, verificationMethod = 'face_only' } = req.body;
 
     const staff = await Staff.findById(staffId);
     if (!staff) {
       return res.status(404).json({ success: false, message: 'Staff member not found' });
     }
 
-    if (!staff.biometrics?.faceEnrolled || !staff.biometrics?.faceDescriptor?.length) {
-      return res.status(400).json({
-        success: false,
-        message: `Staff member "${staff.name}" has not enrolled their face biometrics. Please enroll first.`,
-      });
-    }
+    let finalMethod = verificationMethod;
 
-    if (!staff.biometrics?.fingerprintEnrolled || !staff.biometrics?.fingerprintCredentialId) {
-      return res.status(400).json({
-        success: false,
-        message: `Staff member "${staff.name}" has not enrolled their fingerprint. Please enroll first.`,
-      });
-    }
-
-    if (!faceScore || Number(faceScore) < 70) {
-      return res.status(400).json({
-        success: false,
-        message: `Face verification rejected! Similarity score (${faceScore || 0}%) does not meet the 70% threshold. Wrong staff or mismatched face.`,
-      });
-    }
-
-    if (!fingerprintVerified) {
-      return res.status(400).json({
-        success: false,
-        message: 'Fingerprint biometric verification failed. Attendance denied.',
-      });
+    // Validate based on user chosen verification method
+    if (finalMethod === 'fingerprint_only') {
+      if (!staff.biometrics?.fingerprintEnrolled || !staff.biometrics?.fingerprintCredentialId) {
+        return res.status(400).json({
+          success: false,
+          message: `Staff member "${staff.name}" has not enrolled their fingerprint. Please enroll first.`,
+        });
+      }
+      if (!fingerprintVerified) {
+        return res.status(400).json({
+          success: false,
+          message: 'Fingerprint biometric verification failed. Attendance denied.',
+        });
+      }
+    } else if (finalMethod === 'biometric_dual') {
+      if (!staff.biometrics?.faceEnrolled || !staff.biometrics?.faceDescriptor?.length) {
+        return res.status(400).json({
+          success: false,
+          message: `Staff member "${staff.name}" has not enrolled their face biometrics. Please enroll first.`,
+        });
+      }
+      if (!staff.biometrics?.fingerprintEnrolled || !staff.biometrics?.fingerprintCredentialId) {
+        return res.status(400).json({
+          success: false,
+          message: `Staff member "${staff.name}" has not enrolled their fingerprint. Please enroll first.`,
+        });
+      }
+      if (!faceScore || Number(faceScore) < 70) {
+        return res.status(400).json({
+          success: false,
+          message: `Face verification rejected! Similarity score (${faceScore || 0}%) does not meet the 70% threshold.`,
+        });
+      }
+      if (!fingerprintVerified) {
+        return res.status(400).json({
+          success: false,
+          message: 'Fingerprint biometric verification failed. Attendance denied.',
+        });
+      }
+    } else {
+      // Default: face_only
+      finalMethod = 'face_only';
+      if (!staff.biometrics?.faceEnrolled || !staff.biometrics?.faceDescriptor?.length) {
+        return res.status(400).json({
+          success: false,
+          message: `Staff member "${staff.name}" has not enrolled their face biometrics. Please enroll first.`,
+        });
+      }
+      if (!faceScore || Number(faceScore) < 70) {
+        return res.status(400).json({
+          success: false,
+          message: `Face verification rejected! Similarity score (${faceScore || 0}%) does not meet the 70% threshold.`,
+        });
+      }
     }
 
     const now = new Date();
@@ -286,7 +335,7 @@ export const biometricVerifyAndMark = async (req, res) => {
         date: today,
         status: initialStatus,
         checkIn: currentTimeStr,
-        verificationMethod: 'biometric_dual',
+        verificationMethod: finalMethod,
         snapshotUrl: snapshotUrl || staff.biometrics.facePhoto || '',
         confidenceScore: faceScore || 98.4,
         notes: isLateArrival
@@ -348,7 +397,7 @@ export const biometricVerifyAndMark = async (req, res) => {
       // Re-clock in / update check-in
       record.checkIn = currentTimeStr;
       record.status = isLateArrival ? 'Late' : 'Present';
-      record.verificationMethod = 'biometric_dual';
+      record.verificationMethod = finalMethod;
       if (snapshotUrl) record.snapshotUrl = snapshotUrl;
       record.notes = isLateArrival
         ? `Late arrival (${lateMinutes} mins after shift start ${formattedShiftStart})`

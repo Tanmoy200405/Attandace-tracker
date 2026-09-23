@@ -29,6 +29,36 @@ export const KioskPage = ({ onClose }) => {
   const [enrolledStaff, setEnrolledStaff] = useState([]);
   const [loadingStaff, setLoadingStaff] = useState(true);
   const [actionType, setActionType] = useState('check-in'); // 'check-in' or 'check-out'
+  const [verifyMode, setVerifyMode] = useState('face_only'); // 'face_only', 'fingerprint_only', 'biometric_dual'
+  const [todayStaffRecord, setTodayStaffRecord] = useState(null);
+
+  // Auto-detect if selectedStaff already clocked in today, auto-switch action to 'check-out'
+  useEffect(() => {
+    if (!selectedStaff) return;
+    const checkTodayStatus = async () => {
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const res = await api.attendance.getByDate(todayStr);
+        if (res.success && res.data) {
+          const item = res.data.find((row) => row.staff._id === selectedStaff._id);
+          if (item) {
+            setTodayStaffRecord(item);
+            if (item.checkIn && !item.checkOut) {
+              setActionType('check-out');
+            } else {
+              setActionType('check-in');
+            }
+          } else {
+            setTodayStaffRecord(null);
+            setActionType('check-in');
+          }
+        }
+      } catch (err) {
+        console.warn('Error checking today staff attendance status:', err);
+      }
+    };
+    checkTodayStatus();
+  }, [selectedStaff]);
 
   // Verification state machine
   // 'idle' -> 'face_detected' -> 'fingerprint_pending' -> 'verified'
@@ -183,9 +213,18 @@ export const KioskPage = ({ onClose }) => {
       }
 
       // Success: Face matches!
-      setVerificationError(null);
-      setStep('fingerprint_pending');
-      playAudioChime('success');
+      if (verifyMode === 'face_only') {
+        // Single Verification Mode (Face Only): Submit immediately!
+        submitVerification({
+          method: 'face_only',
+          score: matchResult.score,
+          photo,
+        });
+      } else {
+        setVerificationError(null);
+        setStep('fingerprint_pending');
+        playAudioChime('success');
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -194,6 +233,44 @@ export const KioskPage = ({ onClose }) => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
+    }
+  };
+
+  // Central submission helper
+  const submitVerification = async ({ method, score, photo, fpVerifiedFlag = false }) => {
+    try {
+      setStep('verified');
+      const apiRes = await api.attendance.biometricVerify({
+        staffId: selectedStaff._id,
+        faceScore: score || null,
+        fingerprintVerified: method === 'face_only' ? true : fpVerifiedFlag,
+        snapshotUrl: photo || snapshotPhoto || selectedStaff?.biometrics?.facePhoto || '',
+        action: actionType,
+        verificationMethod: method,
+      });
+
+      setVerificationResult(apiRes);
+      setVerificationError(null);
+
+      if (apiRes.isLate) {
+        playAudioChime('warning');
+      } else {
+        playAudioChime('success');
+      }
+
+      confetti({
+        particleCount: apiRes.isLate ? 30 : 80,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+
+      const autoResetTime = apiRes.isLate ? 7000 : apiRes.isOvertime ? 6000 : 4500;
+      setTimeout(() => {
+        resetKiosk();
+      }, autoResetTime);
+    } catch (apiErr) {
+      setVerificationError(`Attendance recording error: ${apiErr.message}`);
+      playAudioChime('warning');
     }
   };
 
@@ -230,7 +307,6 @@ export const KioskPage = ({ onClose }) => {
       await new Promise((res) => (img.onload = res));
       liveDescriptor = await extractFaceDescriptor(img);
     } else {
-      // Prompt user to open camera or take photo
       fileInputRef.current?.click();
       return;
     }
@@ -243,12 +319,10 @@ export const KioskPage = ({ onClose }) => {
       return;
     }
 
-    // Compare with enrolled descriptor using strict Euclidean threshold
     const matchResult = compareFaceDescriptors(liveDescriptor, selectedStaff.biometrics.faceDescriptor);
     setFaceScore(matchResult.score);
 
     if (!matchResult.isMatch) {
-      // DIFFERENT PERSON OR WRONG STAFF
       setVerificationError(
         `❌ Face Mismatch! Similarity is ${matchResult.score}%. The detected face does not match ${selectedStaff.name}'s biometric profile. Attendance denied.`
       );
@@ -258,17 +332,25 @@ export const KioskPage = ({ onClose }) => {
     }
 
     // Face verified!
-    setVerificationError(null);
-    setStep('fingerprint_pending');
-    playAudioChime('success');
+    if (verifyMode === 'face_only') {
+      submitVerification({
+        method: 'face_only',
+        score: matchResult.score,
+        photo,
+      });
+    } else {
+      setVerificationError(null);
+      setStep('fingerprint_pending');
+      playAudioChime('success');
+    }
   };
 
   // Fingerprint Scan Trigger
   const handleScanFingerprint = async () => {
     if (!selectedStaff) return;
 
-    if (step !== 'fingerprint_pending') {
-      setVerificationError('Please complete Face Recognition first.');
+    if (verifyMode === 'biometric_dual' && step !== 'fingerprint_pending') {
+      setVerificationError('Please complete Face Recognition first for Dual Verification.');
       playAudioChime('warning');
       return;
     }
@@ -283,7 +365,6 @@ export const KioskPage = ({ onClose }) => {
     setVerificationError(null);
 
     try {
-      // Call WebAuthn / Sensor verification
       const res = await verifyHardwareFingerprint(selectedStaff.biometrics?.fingerprintCredentialId);
       
       if (!res || !res.verified) {
@@ -295,44 +376,14 @@ export const KioskPage = ({ onClose }) => {
 
       setFpScanning(false);
       setFpVerified(true);
-      setStep('verified');
 
-      // Submit to API
-      try {
-        const apiRes = await api.attendance.biometricVerify({
-          staffId: selectedStaff._id,
-          faceScore: faceScore || 85,
-          fingerprintVerified: true,
-          snapshotUrl: snapshotPhoto || '',
-          action: actionType,
-        });
-
-        setVerificationResult(apiRes);
-        setVerificationError(null);
-
-        if (apiRes.isLate) {
-          playAudioChime('warning');
-        } else {
-          playAudioChime('success');
-        }
-
-        // Celebrate with confetti
-        confetti({
-          particleCount: apiRes.isLate ? 30 : 80,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
-
-        // Auto-reset timer
-        const autoResetTime = apiRes.isLate ? 7000 : apiRes.isOvertime ? 6000 : 4500;
-        setTimeout(() => {
-          resetKiosk();
-        }, autoResetTime);
-
-      } catch (apiErr) {
-        setVerificationError(`Attendance recording error: ${apiErr.message}`);
-        playAudioChime('warning');
-      }
+      const method = verifyMode === 'fingerprint_only' ? 'fingerprint_only' : 'biometric_dual';
+      submitVerification({
+        method,
+        score: faceScore || null,
+        photo: snapshotPhoto,
+        fpVerifiedFlag: true,
+      });
 
     } catch (err) {
       setFpScanning(false);
@@ -468,6 +519,92 @@ export const KioskPage = ({ onClose }) => {
           </button>
         </div>
       )}
+      {/* Biometric Mode Selection Tabs */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '0.85rem 1.25rem',
+          marginBottom: '1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          flexWrap: 'wrap',
+          border: '1px solid var(--border)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <ShieldCheck size={20} color="#38bdf8" />
+          <div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>Verification Method Choice</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Choose single biometric (Camera or Fingerprint) or Dual Verification for attendance
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => {
+              setVerifyMode('face_only');
+              resetKiosk();
+            }}
+            className={`btn ${verifyMode === 'face_only' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              padding: '0.5rem 1rem',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              background: verifyMode === 'face_only' ? '#06b6d4' : undefined,
+              borderColor: verifyMode === 'face_only' ? '#06b6d4' : undefined,
+              color: verifyMode === 'face_only' ? '#ffffff' : undefined,
+            }}
+          >
+            <ScanFace size={16} />
+            <span>📷 Camera (Face Only)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setVerifyMode('fingerprint_only');
+              resetKiosk();
+            }}
+            className={`btn ${verifyMode === 'fingerprint_only' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              padding: '0.5rem 1rem',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              background: verifyMode === 'fingerprint_only' ? '#a855f7' : undefined,
+              borderColor: verifyMode === 'fingerprint_only' ? '#a855f7' : undefined,
+              color: verifyMode === 'fingerprint_only' ? '#ffffff' : undefined,
+            }}
+          >
+            <Fingerprint size={16} />
+            <span>👆 Fingerprint Sensor Only</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setVerifyMode('biometric_dual');
+              resetKiosk();
+            }}
+            className={`btn ${verifyMode === 'biometric_dual' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              padding: '0.5rem 1rem',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              background: verifyMode === 'biometric_dual' ? '#10b981' : undefined,
+              borderColor: verifyMode === 'biometric_dual' ? '#10b981' : undefined,
+              color: verifyMode === 'biometric_dual' ? '#ffffff' : undefined,
+            }}
+          >
+            <ShieldCheck size={16} />
+            <span>🔒 Dual (Face + Fingerprint)</span>
+          </button>
+        </div>
+      </div>
 
       {/* Main Dual Verification Arena */}
       <div className="kiosk-grid">
@@ -477,8 +614,14 @@ export const KioskPage = ({ onClose }) => {
           
           <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <ScanFace size={20} color="#ffffff" />
-              <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Step 1: Face Recognition</h3>
+              <ScanFace size={20} color={verifyMode === 'fingerprint_only' ? '#666666' : '#ffffff'} />
+              <h3 style={{ fontSize: '1.05rem', margin: 0, color: verifyMode === 'fingerprint_only' ? 'var(--text-dim)' : '#ffffff' }}>
+                {verifyMode === 'face_only'
+                  ? 'Face Recognition Attendance'
+                  : verifyMode === 'biometric_dual'
+                  ? 'Step 1: Face Recognition'
+                  : 'Camera Stream (Fingerprint Mode Active)'}
+              </h3>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               {cameraActive && (
@@ -685,6 +828,45 @@ export const KioskPage = ({ onClose }) => {
             <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '0.4rem' }}>
               Auto-selected from enrolled biometric profiles.
             </p>
+
+            {/* Live Today Status Mini-Card */}
+            {selectedStaff && (
+              <div
+                style={{
+                  marginTop: '0.75rem',
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '10px',
+                  background: 'rgba(0, 0, 0, 0.45)',
+                  border: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.5rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Clock size={15} color="#38bdf8" />
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Today's Status:</span>
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    color: todayStaffRecord?.checkIn
+                      ? todayStaffRecord.checkOut
+                        ? '#38bdf8'
+                        : '#34d399'
+                      : '#f87171',
+                  }}
+                >
+                  {todayStaffRecord?.checkIn
+                    ? todayStaffRecord.checkOut
+                      ? `Clocked Out (${todayStaffRecord.checkOut})`
+                      : `Clocked In (${todayStaffRecord.checkIn})`
+                    : 'Not Clocked In Yet'}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Step 2: Fingerprint Sensor */}
