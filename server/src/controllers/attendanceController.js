@@ -55,6 +55,7 @@ export const getAttendanceByDate = async (req, res) => {
         checkIn: record ? record.checkIn : null,
         checkOut: record ? record.checkOut : null,
         workHours: record ? record.workHours : 0,
+        overtimeHours: record ? record.overtimeHours || 0 : 0,
         verificationMethod: record ? record.verificationMethod : null,
         snapshotUrl: record ? record.snapshotUrl : null,
         confidenceScore: record ? record.confidenceScore : null,
@@ -172,6 +173,31 @@ export const get30DaySummary = async (req, res) => {
   }
 };
 
+// Helper to parse any time string ("09:00", "09:00 AM", "17:00", "05:00 PM") to total minutes from midnight
+const parseTimeToMinutes = (str) => {
+  if (!str) return 540;
+  const trimmed = str.trim();
+  if (trimmed.toUpperCase().includes('AM') || trimmed.toUpperCase().includes('PM')) {
+    const [timePart, modifierPart] = trimmed.split(/\s+/);
+    let [hours, minutes] = timePart.split(':').map(Number);
+    const modifier = modifierPart.toUpperCase();
+    if (modifier === 'PM' && hours < 12) hours += 12;
+    if (modifier === 'AM' && hours === 12) hours = 0;
+    return hours * 60 + (minutes || 0);
+  } else {
+    const [hours, minutes] = trimmed.split(':').map(Number);
+    return (hours || 0) * 60 + (minutes || 0);
+  }
+};
+
+const formatMinutesTo12Hr = (totalMin) => {
+  let hours = Math.floor(totalMin / 60) % 24;
+  const minutes = totalMin % 60;
+  const modifier = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${modifier}`;
+};
+
 // @desc    Biometric Verify & Mark Attendance (Face + Fingerprint)
 // @route   POST /api/attendance/biometric-verify
 export const biometricVerifyAndMark = async (req, res) => {
@@ -219,14 +245,19 @@ export const biometricVerifyAndMark = async (req, res) => {
 
     // Get owner shift settings
     const owner = await Owner.findOne();
-    const shiftStart = owner?.shiftStart || '09:00';
+    const ownerShiftStart = owner?.shiftStart || '09:00';
+    const ownerShiftEnd = owner?.shiftEnd || '17:00';
     const graceMinutes = owner?.gracePeriodMinutes ?? 15;
 
-    // Determine if late — use IST (Asia/Kolkata) time, NOT UTC
-    const [startH, startM] = shiftStart.split(':').map(Number);
-    const shiftStartTotalMin = startH * 60 + startM + graceMinutes;
+    // Use staff expectedCheckIn / expectedCheckOut if set, else fallback to owner shift
+    const rawShiftStart = staff.expectedCheckIn || ownerShiftStart;
+    const rawShiftEnd = staff.expectedCheckOut || ownerShiftEnd;
 
-    // Extract IST hours and minutes from the current time
+    const shiftStartMin = parseTimeToMinutes(rawShiftStart);
+    const shiftEndMin = parseTimeToMinutes(rawShiftEnd);
+    const lateThresholdMin = shiftStartMin + graceMinutes;
+
+    // Extract IST hours and minutes from current time
     const istTimeStr = now.toLocaleString('en-US', {
       timeZone: 'Asia/Kolkata',
       hour: '2-digit',
@@ -235,12 +266,17 @@ export const biometricVerifyAndMark = async (req, res) => {
     });
     const [istHours, istMinutes] = istTimeStr.split(':').map(Number);
     const currentTotalMin = istHours * 60 + istMinutes;
-    const isLateArrival = currentTotalMin > shiftStartTotalMin;
+
+    const isLateArrival = currentTotalMin > lateThresholdMin;
+    const lateMinutes = isLateArrival ? currentTotalMin - shiftStartMin : 0;
 
     let record = await Attendance.findOne({ staffId: staff._id, date: today });
 
     // Determine action (check-in or check-out)
     const targetAction = action || (record && record.checkIn && !record.checkOut ? 'check-out' : 'check-in');
+
+    const formattedShiftStart = formatMinutesTo12Hr(shiftStartMin);
+    const formattedShiftEnd = formatMinutesTo12Hr(shiftEndMin);
 
     if (!record) {
       // New check-in
@@ -253,13 +289,23 @@ export const biometricVerifyAndMark = async (req, res) => {
         verificationMethod: 'biometric_dual',
         snapshotUrl: snapshotUrl || staff.biometrics.facePhoto || '',
         confidenceScore: faceScore || 98.4,
-        notes: isLateArrival ? `Arrived late after shift start (${shiftStart})` : 'Punctual biometric check-in',
+        notes: isLateArrival
+          ? `Late arrival (${lateMinutes} mins after shift start ${formattedShiftStart})`
+          : 'Punctual biometric check-in',
       });
 
       return res.status(201).json({
         success: true,
         action: 'check-in',
-        message: `Welcome, ${staff.name}! Clocked in successfully at ${currentTimeStr}. (${initialStatus})`,
+        isLate: isLateArrival,
+        lateMinutes,
+        graceMinutes,
+        shiftStart: formattedShiftStart,
+        shiftEnd: formattedShiftEnd,
+        checkIn: currentTimeStr,
+        message: isLateArrival
+          ? `LATE CLOCK-IN! Welcome ${staff.name}. Clocked in at ${currentTimeStr}. You are ${lateMinutes} mins late (Shift start: ${formattedShiftStart}).`
+          : `Welcome, ${staff.name}! Punctual clock-in at ${currentTimeStr}.`,
         data: record,
         staff,
       });
@@ -270,12 +316,31 @@ export const biometricVerifyAndMark = async (req, res) => {
       record.checkOut = currentTimeStr;
       record.workHours = calculateHours(record.checkIn, currentTimeStr);
       if (snapshotUrl) record.snapshotUrl = snapshotUrl;
+
+      // Overtime calculation
+      let isOvertime = false;
+      let overtimeHours = 0;
+      if (currentTotalMin > shiftEndMin) {
+        isOvertime = true;
+        const overtimeMin = currentTotalMin - shiftEndMin;
+        overtimeHours = +(overtimeMin / 60).toFixed(2);
+        record.overtimeHours = overtimeHours;
+      }
       await record.save();
 
       return res.json({
         success: true,
         action: 'check-out',
-        message: `Goodbye, ${staff.name}! Clocked out at ${currentTimeStr}. Total worked: ${record.workHours} hrs.`,
+        isOvertime,
+        overtimeHours,
+        workHours: record.workHours,
+        shiftStart: formattedShiftStart,
+        shiftEnd: formattedShiftEnd,
+        checkIn: record.checkIn,
+        checkOut: currentTimeStr,
+        message: isOvertime
+          ? `OVERTIME LOGGED! Goodbye ${staff.name}. Clocked out at ${currentTimeStr}. Worked ${record.workHours} hrs (${overtimeHours} hrs Overtime).`
+          : `Goodbye, ${staff.name}! Clocked out at ${currentTimeStr}. Total worked: ${record.workHours} hrs.`,
         data: record,
         staff,
       });
@@ -285,13 +350,24 @@ export const biometricVerifyAndMark = async (req, res) => {
       record.status = isLateArrival ? 'Late' : 'Present';
       record.verificationMethod = 'biometric_dual';
       if (snapshotUrl) record.snapshotUrl = snapshotUrl;
+      record.notes = isLateArrival
+        ? `Late arrival (${lateMinutes} mins after shift start ${formattedShiftStart})`
+        : 'Punctual biometric check-in';
       record.updatedAt = new Date();
       await record.save();
 
       return res.json({
         success: true,
         action: 'check-in',
-        message: `${staff.name} check-in updated at ${currentTimeStr}.`,
+        isLate: isLateArrival,
+        lateMinutes,
+        graceMinutes,
+        shiftStart: formattedShiftStart,
+        shiftEnd: formattedShiftEnd,
+        checkIn: currentTimeStr,
+        message: isLateArrival
+          ? `LATE CLOCK-IN UPDATED! ${staff.name} clocked in at ${currentTimeStr} (${lateMinutes} mins late).`
+          : `${staff.name} check-in updated at ${currentTimeStr}.`,
         data: record,
         staff,
       });

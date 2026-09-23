@@ -230,7 +230,29 @@ export const AttendancePage = () => {
                   </td>
 
                   <td style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.85rem' }}>
-                    {row.workHours ? `${row.workHours}h` : '—'}
+                    {row.workHours ? (
+                      <div>
+                        <span>{row.workHours}h</span>
+                        {(row.overtimeHours > 0 || row.attendance?.overtimeHours > 0) && (
+                          <span
+                            style={{
+                              marginLeft: '0.4rem',
+                              fontSize: '0.7rem',
+                              color: '#c084fc',
+                              background: 'rgba(168, 85, 247, 0.2)',
+                              border: '1px solid rgba(168, 85, 247, 0.4)',
+                              borderRadius: '4px',
+                              padding: '0.1rem 0.35rem',
+                              fontWeight: 700,
+                            }}
+                          >
+                            +{row.overtimeHours || row.attendance?.overtimeHours}h OT
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      '—'
+                    )}
                   </td>
 
                   <td>

@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   UserCheck,
   SwitchCamera,
+  Award,
 } from 'lucide-react';
 import { api } from '../services/api';
 import {
@@ -308,19 +309,25 @@ export const KioskPage = ({ onClose }) => {
 
         setVerificationResult(apiRes);
         setVerificationError(null);
-        playAudioChime('success');
+
+        if (apiRes.isLate) {
+          playAudioChime('warning');
+        } else {
+          playAudioChime('success');
+        }
 
         // Celebrate with confetti
         confetti({
-          particleCount: 80,
+          particleCount: apiRes.isLate ? 30 : 80,
           spread: 70,
           origin: { y: 0.6 },
         });
 
-        // Auto-reset after 4.5 seconds for next employee
+        // Auto-reset timer
+        const autoResetTime = apiRes.isLate ? 7000 : apiRes.isOvertime ? 6000 : 4500;
         setTimeout(() => {
           resetKiosk();
-        }, 4500);
+        }, autoResetTime);
 
       } catch (apiErr) {
         setVerificationError(`Attendance recording error: ${apiErr.message}`);
@@ -760,36 +767,265 @@ export const KioskPage = ({ onClose }) => {
             </button>
           </div>
 
-          {/* Success Result Card */}
-          {verificationResult && (
-            <div
-              className="glass-card"
-              style={{
-                padding: '1.25rem',
-                border: '1px solid #ffffff',
-                background: 'rgba(255, 255, 255, 0.08)',
-                animation: 'slideUp 0.3s ease-out',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000000' }}>
-                  <Sparkles size={20} />
-                </div>
-                <div>
-                  <h4 style={{ fontSize: '0.95rem', color: '#fff', margin: 0 }}>
-                    Attendance Recorded!
-                  </h4>
-                  <p style={{ fontSize: '0.78rem', color: '#cccccc', margin: '0.2rem 0 0' }}>
-                    {verificationResult.message}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
         </div>
 
       </div>
+
+      {/* Verification Result Modal Pop-Up Overlay */}
+      {verificationResult && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0, 0, 0, 0.88)',
+            backdropFilter: 'blur(12px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.5rem',
+          }}
+        >
+          <div
+            className="glass-card"
+            style={{
+              width: '100%',
+              maxWidth: '520px',
+              padding: '2rem',
+              borderRadius: '24px',
+              border: verificationResult.isLate
+                ? '2px solid #ef4444'
+                : verificationResult.isOvertime
+                ? '2px solid #a855f7'
+                : '2px solid #10b981',
+              boxShadow: verificationResult.isLate
+                ? '0 0 45px rgba(239, 68, 68, 0.4)'
+                : verificationResult.isOvertime
+                ? '0 0 45px rgba(168, 85, 247, 0.4)'
+                : '0 0 45px rgba(16, 185, 129, 0.4)',
+              animation: 'scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              textAlign: 'center',
+              background: 'rgba(18, 18, 20, 0.95)',
+            }}
+          >
+            {/* Top Icon Badge */}
+            <div
+              style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                margin: '0 auto 1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: verificationResult.isLate
+                  ? 'rgba(239, 68, 68, 0.15)'
+                  : verificationResult.isOvertime
+                  ? 'rgba(168, 85, 247, 0.15)'
+                  : 'rgba(16, 185, 129, 0.15)',
+                border: `2px solid ${
+                  verificationResult.isLate
+                    ? '#ef4444'
+                    : verificationResult.isOvertime
+                    ? '#a855f7'
+                    : '#10b981'
+                }`,
+              }}
+            >
+              {verificationResult.isLate ? (
+                <AlertTriangle size={42} color="#ef4444" />
+              ) : verificationResult.isOvertime ? (
+                <Award size={42} color="#a855f7" />
+              ) : (
+                <CheckCircle2 size={42} color="#10b981" />
+              )}
+            </div>
+
+            {/* Title */}
+            <h2
+              style={{
+                fontSize: '1.6rem',
+                fontWeight: 900,
+                letterSpacing: '-0.02em',
+                margin: '0 0 0.35rem',
+                color: verificationResult.isLate
+                  ? '#f87171'
+                  : verificationResult.isOvertime
+                  ? '#c084fc'
+                  : '#34d399',
+              }}
+            >
+              {verificationResult.isLate
+                ? 'YOU ARE LATE!'
+                : verificationResult.isOvertime
+                ? 'OVERTIME LOGGED!'
+                : 'PUNCTUAL CHECK-IN!'}
+            </h2>
+
+            {/* Staff Name & ID */}
+            <p style={{ fontSize: '1.05rem', color: '#ffffff', fontWeight: 600, margin: '0 0 1.25rem' }}>
+              {selectedStaff?.name} ({selectedStaff?.employeeId})
+            </p>
+
+            {/* Shift Breakdown Box */}
+            <div
+              style={{
+                background: 'rgba(0, 0, 0, 0.5)',
+                border: '1px solid var(--border)',
+                borderRadius: '16px',
+                padding: '1.25rem',
+                marginBottom: '1.25rem',
+                textAlign: 'left',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+              }}
+            >
+              {verificationResult.action === 'check-in' ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Admin Shift Start:</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>
+                      {verificationResult.shiftStart || '09:00 AM'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Actual Clock-In:</span>
+                    <span
+                      style={{
+                        fontSize: '0.9rem',
+                        fontWeight: 700,
+                        color: verificationResult.isLate ? '#f87171' : '#34d399',
+                      }}
+                    >
+                      {verificationResult.checkIn || verificationResult.checkInTime}
+                    </span>
+                  </div>
+                  {verificationResult.isLate && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Late Duration:</span>
+                      <span
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.2)',
+                          border: '1px solid #f87171',
+                          color: '#fca5a5',
+                          borderRadius: '8px',
+                          fontSize: '0.85rem',
+                          fontWeight: 700,
+                          padding: '0.25rem 0.65rem',
+                        }}
+                      >
+                        ⏱️ {verificationResult.lateMinutes} Mins Late
+                      </span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Admin Shift End:</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>
+                      {verificationResult.shiftEnd || '05:00 PM'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Actual Clock-Out:</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>
+                      {verificationResult.checkOut || verificationResult.checkOutTime}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Total Work Hours:</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#38bdf8' }}>
+                      {verificationResult.workHours} hrs
+                    </span>
+                  </div>
+                  {verificationResult.isOvertime && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Overtime Credited:</span>
+                      <span
+                        style={{
+                          background: 'rgba(168, 85, 247, 0.25)',
+                          border: '1px solid #c084fc',
+                          color: '#e9d5ff',
+                          borderRadius: '8px',
+                          fontSize: '0.85rem',
+                          fontWeight: 700,
+                          padding: '0.25rem 0.65rem',
+                        }}
+                      >
+                        ⭐ {verificationResult.overtimeHours} hrs Overtime
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Payroll Notice Box */}
+            {verificationResult.isLate && (
+              <div
+                style={{
+                  padding: '0.85rem 1rem',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px dashed rgba(239, 68, 68, 0.4)',
+                  borderRadius: '12px',
+                  color: '#fca5a5',
+                  fontSize: '0.8rem',
+                  marginBottom: '1.25rem',
+                  textAlign: 'center',
+                  lineHeight: 1.45,
+                }}
+              >
+                <strong>⚠️ Payroll Policy Warning:</strong> Marked as LATE in attendance. Note that 3 late days result in 1 day salary deduction in monthly payroll.
+              </div>
+            )}
+
+            {verificationResult.isOvertime && (
+              <div
+                style={{
+                  padding: '0.85rem 1rem',
+                  background: 'rgba(168, 85, 247, 0.12)',
+                  border: '1px dashed rgba(168, 85, 247, 0.4)',
+                  borderRadius: '12px',
+                  color: '#e9d5ff',
+                  fontSize: '0.8rem',
+                  marginBottom: '1.25rem',
+                  textAlign: 'center',
+                  lineHeight: 1.45,
+                }}
+              >
+                <strong>⭐ Overtime Bonus Note:</strong> Extra hours recorded for monthly payroll overtime bonus calculations.
+              </div>
+            )}
+
+            <button
+              onClick={resetKiosk}
+              className="btn btn-primary"
+              style={{
+                width: '100%',
+                padding: '0.85rem',
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                borderRadius: '12px',
+                background: verificationResult.isLate
+                  ? '#ef4444'
+                  : verificationResult.isOvertime
+                  ? '#9333ea'
+                  : 'var(--primary)',
+                borderColor: verificationResult.isLate
+                  ? '#ef4444'
+                  : verificationResult.isOvertime
+                  ? '#9333ea'
+                  : 'var(--primary)',
+              }}
+            >
+              Acknowledge & Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );
