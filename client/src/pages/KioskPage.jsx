@@ -107,6 +107,8 @@ export const KioskPage = ({ onClose }) => {
     };
   }, []);
 
+  const currentStreamPromise = useRef(null);
+
   const startCamera = async (mode = facingMode) => {
     setCameraError(null);
     stopCamera();
@@ -128,21 +130,32 @@ export const KioskPage = ({ onClose }) => {
         return;
       }
 
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: mode, width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: false,
-        });
-      } catch {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const streamPromise = (async () => {
+        try {
+          return await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: mode, width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false,
+          });
+        } catch {
+          return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        }
+      })();
+
+      currentStreamPromise.current = streamPromise;
+      const stream = await streamPromise;
+
+      // If a new request was started while waiting, stop this old stream immediately to prevent memory leak and lag
+      if (currentStreamPromise.current !== streamPromise) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
       }
 
       streamRef.current = stream;
       setCameraActive(true);
 
       setTimeout(() => {
-        if (videoRef.current) {
+        // Ensure we only bind if this stream is still the active one
+        if (videoRef.current && streamRef.current === stream) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().catch((e) => console.log('Video play error:', e));
         }
@@ -230,9 +243,13 @@ export const KioskPage = ({ onClose }) => {
   };
 
   const stopCamera = () => {
+    currentStreamPromise.current = null;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
   };
 
