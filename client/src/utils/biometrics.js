@@ -284,32 +284,33 @@ export const enrollHardwareFingerprint = async (staffName, employeeId) => {
             credentialId: btoa(String.fromCharCode(...new Uint8Array(credential.rawId))),
             type: 'hardware',
           };
+        } else {
+          throw new Error('Credential creation failed.');
         }
+      } else {
+        throw new Error('No fingerprint/platform authenticator is available on this device.');
       }
     } catch (err) {
       console.warn('Hardware WebAuthn prompt canceled or unavailable:', err.message);
+      throw new Error(`Hardware WebAuthn error: ${err.message}`);
     }
+  } else {
+    throw new Error('Real fingerprint scanning requires a secure context (HTTPS or localhost) and browser support.');
   }
-
-  // 2. Multi-staff shared device sensor credential key (for kiosks & shared phone biometric scanning)
-  const randomHex = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-  return {
-    success: true,
-    credentialId: `fp_sensor_${safeEmpId}_${randomHex}`,
-    type: 'staff_sensor',
-  };
 };
 
-// 5. Fingerprint Verification (supports both WebAuthn hardware & multi-staff kiosk mode)
 export const verifyHardwareFingerprint = async (storedCredentialId) => {
   if (!storedCredentialId) {
     return { success: false, verified: false, message: 'No fingerprint enrolled for this staff member.' };
   }
 
+  // If staff sensor mock credential key was enrolled previously
+  if (storedCredentialId.startsWith('fp_sensor_')) {
+    return { success: false, verified: false, message: 'Mock credential detected. Please re-enroll this staff member with a real hardware sensor.' };
+  }
+
   // Hardware WebAuthn verification
-  if (window.PublicKeyCredential && window.isSecureContext && !storedCredentialId.startsWith('fp_sensor_')) {
+  if (window.PublicKeyCredential && window.isSecureContext) {
     try {
       const challenge = new Uint8Array(32);
       window.crypto.getRandomValues(challenge);
@@ -337,17 +338,11 @@ export const verifyHardwareFingerprint = async (storedCredentialId) => {
       }
     } catch (err) {
       console.warn('Hardware WebAuthn prompt canceled or failed:', err.message);
-      // Fallback to sensor confirmation if hardware prompt errors out on shared device
-      return { success: true, verified: true, message: 'Sensor verified.' };
+      return { success: false, verified: false, message: `Hardware WebAuthn error: ${err.message}` };
     }
   }
 
-  // If staff sensor credential key was enrolled
-  if (storedCredentialId.startsWith('fp_sensor_')) {
-    return { success: true, verified: true };
-  }
-
-  return { success: true, verified: true };
+  return { success: false, verified: false, message: 'Real fingerprint scanning requires a secure context (HTTPS or localhost) and browser support.' };
 };
 
 // 6. Web Audio API Chime Synth

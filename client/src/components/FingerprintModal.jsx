@@ -17,13 +17,10 @@ export const FingerprintModal = ({ staff, isOpen, onClose, onSuccess }) => {
       // Trigger WebAuthn / Sensor enrollment
       const result = await enrollHardwareFingerprint(staff?.name, staff?.employeeId);
       
-      // Simulate physical sensor verification feedback
-      setTimeout(() => {
-        setScanning(false);
-        setScanComplete(true);
-        setCredentialData(result);
-        playAudioChime('success');
-      }, 1200);
+      setScanning(false);
+      setScanComplete(true);
+      setCredentialData(result);
+      playAudioChime('success');
     } catch (err) {
       setScanning(false);
       alert(`Fingerprint sensor error: ${err.message}`);
