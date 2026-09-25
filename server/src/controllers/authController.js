@@ -119,6 +119,7 @@ export const updateSettings = async (req, res) => {
       language,
       organizationLogo,
       deviceConfig,
+      holidays,
     } = req.body;
 
     let owner = await Owner.findById(req.owner?._id || req.owner?.id).select(
@@ -139,6 +140,7 @@ export const updateSettings = async (req, res) => {
     if (language !== undefined) owner.language = language;
     if (organizationLogo !== undefined)
       owner.organizationLogo = organizationLogo;
+    if (holidays !== undefined) owner.holidays = holidays;
     if (deviceConfig !== undefined) {
       if (deviceConfig.kioskMode !== undefined) owner.deviceConfig.kioskMode = deviceConfig.kioskMode;
       if (deviceConfig.deviceType !== undefined) owner.deviceConfig.deviceType = deviceConfig.deviceType;

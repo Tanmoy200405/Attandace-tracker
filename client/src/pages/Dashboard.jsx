@@ -18,6 +18,7 @@ export const Dashboard = ({ setTab }) => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [detailStaffId, setDetailStaffId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("All Emp");
 
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -52,13 +53,24 @@ export const Dashboard = ({ setTab }) => {
   const totalIn = roster.filter((row) => row.checkIn).length;
   const totalOut = roster.filter((row) => row.checkOut).length;
   const lateCount = roster.filter((row) => row.status === "Late").length;
-  const notYetIn = roster.filter((row) => !row.checkIn).length;
+  const absentCount = roster.filter((row) => row.status === "Absent").length;
+  const notYetIn = roster.filter((row) => !row.checkIn && row.status !== "Absent").length;
+
   const filteredRoster = roster.filter((row) => {
+    // Text search
     const search = searchTerm.trim().toLowerCase();
-    if (!search) return true;
-    return `${row.staff.name} ${row.staff.employeeId}`
-      .toLowerCase()
-      .includes(search);
+    if (search && !`${row.staff.name} ${row.staff.employeeId}`.toLowerCase().includes(search)) {
+      return false;
+    }
+
+    // Category filter
+    if (filterStatus === "Total In") return row.checkIn;
+    if (filterStatus === "Total Out") return row.checkOut;
+    if (filterStatus === "Late") return row.status === "Late";
+    if (filterStatus === "Not Yet In") return !row.checkIn && row.status !== "Absent";
+    if (filterStatus === "Absent") return row.status === "Absent";
+    
+    return true;
   });
 
   const summaryCards = [
@@ -67,6 +79,7 @@ export const Dashboard = ({ setTab }) => {
     { label: "Total Out", value: totalOut, color: "#ef4444", icon: Clock },
     { label: "Late", value: lateCount, color: "#f59e0b", icon: Clock },
     { label: "Not Yet In", value: notYetIn, color: "#8b5cf6", icon: Users },
+    { label: "Absent", value: absentCount, color: "#9ca3af", icon: Users },
   ];
 
   return (
@@ -86,11 +99,22 @@ export const Dashboard = ({ setTab }) => {
 
       <div className="dashboard-summary-grid">
         {summaryCards.map(({ label, value, color, icon: Icon }) => (
-          <div className="dashboard-summary-card" key={label}>
+          <button
+            className="dashboard-summary-card"
+            key={label}
+            onClick={() => setFilterStatus(label)}
+            style={{
+              border: filterStatus === label ? `2px solid ${color}` : "1px solid var(--border)",
+              background: filterStatus === label ? `${color}10` : "var(--bg-card)",
+              cursor: "pointer",
+              textAlign: "left",
+              outline: "none"
+            }}
+          >
             <Icon size={17} color={color} />
             <strong style={{ color }}>{loading ? "..." : value}</strong>
             <span>{label}</span>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -114,8 +138,8 @@ export const Dashboard = ({ setTab }) => {
         </button>
       </div>
 
-      <div className="dashboard-section-heading">
-        <h2>Today</h2>
+      <div className="dashboard-section-heading" style={{ marginTop: "1rem" }}>
+        <h2>{filterStatus === "All Emp" ? "Today's Roster" : `${filterStatus} Employees`}</h2>
         <button
           type="button"
           className="btn btn-secondary dashboard-add-button"

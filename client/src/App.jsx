@@ -8,6 +8,7 @@ import { StaffPage } from "./pages/StaffPage";
 import { KioskPage } from "./pages/KioskPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { HolidaysPage } from "./pages/HolidaysPage";
 import { LoginPage } from "./pages/LoginPage";
 import { LogIn } from "lucide-react";
 
@@ -190,6 +191,7 @@ export const App = () => {
                 <KioskPage onClose={() => handleTabChange("dashboard")} />
               )}
               {currentTab === "reports" && <ReportsPage />}
+              {currentTab === "holidays" && <HolidaysPage />}
               {currentTab === "settings" && (
                 <SettingsPage setTab={handleTabChange} />
               )}

@@ -9,6 +9,7 @@ import {
   Settings,
   Fingerprint,
   X,
+  Calendar
 } from "lucide-react";
 
 export const Sidebar = ({ currentTab, setTab, isOpen }) => {
@@ -19,6 +20,7 @@ export const Sidebar = ({ currentTab, setTab, isOpen }) => {
     { id: "attendance", label: "Daily Attendance", icon: CalendarCheck },
     { id: "staff", label: "Staff Directory", icon: Users },
     { id: "kiosk", label: "Biometric Kiosk", icon: Camera, highlight: true },
+    { id: "holidays", label: "Holidays", icon: Calendar },
     { id: "reports", label: "Monthly Reports", icon: BarChart3 },
     { id: "settings", label: "Shift Settings", icon: Settings },
   ];

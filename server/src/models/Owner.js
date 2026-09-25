@@ -73,6 +73,13 @@ const ownerSchema = new mongoose.Schema({
       default: 3,
     },
   },
+  holidays: {
+    type: [{
+      name: String,
+      date: String
+    }],
+    default: [],
+  },
   createdAt: {
     type: Date,
     default: Date.now,

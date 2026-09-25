@@ -46,20 +46,13 @@ export const Navbar = ({ onOpenKiosk, onToggleSidebar }) => {
           >
             <Menu size={22} />
           </button>
-          <div className="navbar-logo">
-            {owner?.organizationLogo ? (
-              <img src={owner.organizationLogo} alt="Organization logo" />
-            ) : (
-              <ShieldCheck size={24} color="#fff" />
-            )}
-          </div>
           <div>
             <div className="navbar-brand-row">
               <span
                 className="navbar-brand-name"
-                style={{ fontSize: "1.25rem" }}
+                style={{ fontSize: "1.25rem", fontWeight: "800", color: "var(--primary)" }}
               >
-                {owner?.businessName || "InOut"}
+                BioTrack
               </span>
             </div>
           </div>
@@ -79,16 +72,6 @@ export const Navbar = ({ onOpenKiosk, onToggleSidebar }) => {
 
         {/* Right: Kiosk + User */}
         <div className="navbar-right">
-          {!isStaff && (
-            <button
-              onClick={onOpenKiosk}
-              className="btn btn-kiosk navbar-kiosk-btn"
-            >
-              <Camera size={16} />
-              <span className="navbar-kiosk-text">Launch Kiosk</span>
-            </button>
-          )}
-
           <div className="navbar-user">
             <div className="navbar-avatar">
               {isStaff ? "S" : owner?.name ? owner.name.charAt(0) : "A"}
@@ -106,15 +89,21 @@ export const Navbar = ({ onOpenKiosk, onToggleSidebar }) => {
             </div>
             <button
               onClick={logout}
-              className="btn btn-secondary"
-              title="Logout / Switch Portal"
+              title="Logout"
               style={{
-                padding: "0.4rem",
+                padding: "0.5rem",
                 borderRadius: "8px",
-                color: "var(--text-muted)",
+                color: "var(--danger)",
+                backgroundColor: "var(--danger-bg)",
+                border: "1px solid var(--danger)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                transition: "all 0.2s"
               }}
             >
-              <LogOut size={16} />
+              <LogOut size={18} />
             </button>
           </div>
         </div>

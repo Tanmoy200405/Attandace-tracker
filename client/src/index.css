@@ -540,8 +540,8 @@ h6 {
   position: sticky;
   top: 0;
   z-index: 40;
-  background-color: var(--primary);
-  color: #ffffff;
+  background-color: var(--bg-card);
+  color: var(--text-main);
 }
 
 .navbar .navbar-brand-name,
@@ -549,7 +549,7 @@ h6 {
 .navbar .navbar-user-name,
 .navbar .navbar-clock-time,
 .navbar .hamburger-btn {
-  color: #ffffff !important;
+  color: var(--text-main) !important;
 }
 
 .navbar-inner {
