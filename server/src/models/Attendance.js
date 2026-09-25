@@ -1,9 +1,15 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const attendanceSchema = new mongoose.Schema({
+  ownerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Owner",
+    required: true,
+    index: true,
+  },
   staffId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Staff',
+    ref: "Staff",
     required: true,
   },
   date: {
@@ -13,8 +19,8 @@ const attendanceSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Present', 'Late', 'Half Day', 'Absent', 'Leave', 'Weekly Off'],
-    default: 'Present',
+    enum: ["Present", "Late", "Half Day", "Absent", "Leave", "Weekly Off"],
+    default: "Present",
   },
   checkIn: {
     type: String, // e.g. "09:05 AM"
@@ -34,12 +40,18 @@ const attendanceSchema = new mongoose.Schema({
   },
   verificationMethod: {
     type: String,
-    enum: ['biometric_dual', 'face_only', 'fingerprint_only', 'manual_override', 'unmarked'],
-    default: 'biometric_dual',
+    enum: [
+      "biometric_dual",
+      "face_only",
+      "fingerprint_only",
+      "manual_override",
+      "unmarked",
+    ],
+    default: "biometric_dual",
   },
   snapshotUrl: {
     type: String, // base64 face verification capture
-    default: '',
+    default: "",
   },
   confidenceScore: {
     type: Number, // e.g. 96.5%
@@ -47,7 +59,7 @@ const attendanceSchema = new mongoose.Schema({
   },
   notes: {
     type: String,
-    default: '',
+    default: "",
   },
   isOverridden: {
     type: Boolean,
@@ -55,7 +67,7 @@ const attendanceSchema = new mongoose.Schema({
   },
   overriddenBy: {
     type: String,
-    default: '',
+    default: "",
   },
   createdAt: {
     type: Date,
@@ -70,4 +82,4 @@ const attendanceSchema = new mongoose.Schema({
 // Ensure a staff has at most one attendance record per day
 attendanceSchema.index({ staffId: 1, date: 1 }, { unique: true });
 
-export default mongoose.model('Attendance', attendanceSchema);
+export default mongoose.model("Attendance", attendanceSchema);

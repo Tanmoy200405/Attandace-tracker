@@ -1,10 +1,10 @@
 const BASE_URL = import.meta.env.VITE_API_URL;
 
 const getHeaders = () => {
-  const token = localStorage.getItem('biotrack_token');
-  const headers = { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem("biotrack_token");
+  const headers = { "Content-Type": "application/json" };
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers["Authorization"] = `Bearer ${token}`;
   }
   return headers;
 };
@@ -12,7 +12,7 @@ const getHeaders = () => {
 const handleResponse = async (response) => {
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.message || 'An error occurred during request');
+    throw new Error(data.message || "An error occurred during request");
   }
   return data;
 };
@@ -22,16 +22,16 @@ export const api = {
   auth: {
     login: async (email, password) => {
       const res = await fetch(`${BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
       return handleResponse(res);
     },
     register: async (payload) => {
       const res = await fetch(`${BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       return handleResponse(res);
@@ -44,9 +44,31 @@ export const api = {
     },
     updateSettings: async (settings) => {
       const res = await fetch(`${BASE_URL}/auth/settings`, {
-        method: 'PUT',
+        method: "PUT",
         headers: getHeaders(),
         body: JSON.stringify(settings),
+      });
+      return handleResponse(res);
+    },
+    verifyKioskPassword: async (password) => {
+      const res = await fetch(`${BASE_URL}/auth/verify-kiosk-password`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ password }),
+      });
+      return handleResponse(res);
+    },
+    getKioskStatus: async () => {
+      const res = await fetch(`${BASE_URL}/auth/kiosk-status`, {
+        headers: getHeaders(),
+      });
+      return handleResponse(res);
+    },
+    changePassword: async (currentPassword, newPassword) => {
+      const res = await fetch(`${BASE_URL}/auth/change-password`, {
+        method: "PUT",
+        headers: getHeaders(),
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
       return handleResponse(res);
     },
@@ -75,7 +97,7 @@ export const api = {
     },
     create: async (data) => {
       const res = await fetch(`${BASE_URL}/staff`, {
-        method: 'POST',
+        method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(data),
       });
@@ -83,7 +105,7 @@ export const api = {
     },
     update: async (id, data) => {
       const res = await fetch(`${BASE_URL}/staff/${id}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: getHeaders(),
         body: JSON.stringify(data),
       });
@@ -91,14 +113,14 @@ export const api = {
     },
     delete: async (id) => {
       const res = await fetch(`${BASE_URL}/staff/${id}`, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: getHeaders(),
       });
       return handleResponse(res);
     },
     enrollFace: async (id, facePhoto, faceDescriptor) => {
       const res = await fetch(`${BASE_URL}/staff/${id}/enroll-face`, {
-        method: 'POST',
+        method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({ facePhoto, faceDescriptor }),
       });
@@ -106,7 +128,7 @@ export const api = {
     },
     enrollFingerprint: async (id, credentialId, publicKey) => {
       const res = await fetch(`${BASE_URL}/staff/${id}/enroll-fingerprint`, {
-        method: 'POST',
+        method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({ credentialId, publicKey }),
       });
@@ -114,7 +136,7 @@ export const api = {
     },
     clearBiometrics: async (id) => {
       const res = await fetch(`${BASE_URL}/staff/${id}/clear-biometrics`, {
-        method: 'POST',
+        method: "POST",
         headers: getHeaders(),
       });
       return handleResponse(res);
@@ -124,7 +146,10 @@ export const api = {
   // Attendance
   attendance: {
     getByDate: async (date, department) => {
-      const query = department && department !== 'All' ? `?department=${encodeURIComponent(department)}` : '';
+      const query =
+        department && department !== "All"
+          ? `?department=${encodeURIComponent(department)}`
+          : "";
       const res = await fetch(`${BASE_URL}/attendance/date/${date}${query}`, {
         headers: getHeaders(),
       });
@@ -138,7 +163,7 @@ export const api = {
     },
     biometricVerify: async (payload) => {
       const res = await fetch(`${BASE_URL}/attendance/biometric-verify`, {
-        method: 'POST',
+        method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(payload),
       });
@@ -146,7 +171,7 @@ export const api = {
     },
     manualMark: async (payload) => {
       const res = await fetch(`${BASE_URL}/attendance/manual`, {
-        method: 'POST',
+        method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(payload),
       });
@@ -154,7 +179,7 @@ export const api = {
     },
     bulkMark: async (payload) => {
       const res = await fetch(`${BASE_URL}/attendance/bulk-mark`, {
-        method: 'POST',
+        method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(payload),
       });
@@ -166,18 +191,15 @@ export const api = {
   reports: {
     getMonthly: async (year, month, department) => {
       const params = new URLSearchParams({ year, month });
-      if (department && department !== 'All') params.append('department', department);
-      const res = await fetch(`${BASE_URL}/reports/monthly?${params.toString()}`, {
-        headers: getHeaders(),
-      });
+      if (department && department !== "All")
+        params.append("department", department);
+      const res = await fetch(
+        `${BASE_URL}/reports/monthly?${params.toString()}`,
+        {
+          headers: getHeaders(),
+        },
+      );
       return handleResponse(res);
-    },
-    getExportUrl: (startDate, endDate, department) => {
-      const params = new URLSearchParams();
-      if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
-      if (department && department !== 'All') params.append('department', department);
-      return `${BASE_URL}/reports/export-csv?${params.toString()}`;
     },
   },
 };

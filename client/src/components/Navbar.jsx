@@ -1,6 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { Clock, ShieldCheck, Camera, LogOut, Building, Menu } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
+import {
+  Clock,
+  ShieldCheck,
+  Camera,
+  LogOut,
+  Building,
+  Menu,
+} from "lucide-react";
 
 export const Navbar = ({ onOpenKiosk, onToggleSidebar }) => {
   const { owner, isStaff, logout } = useAuth();
@@ -11,26 +18,25 @@ export const Navbar = ({ onOpenKiosk, onToggleSidebar }) => {
     return () => clearInterval(timer);
   }, []);
 
-  const formattedTime = time.toLocaleTimeString('en-US', {
-    timeZone: 'Asia/Kolkata',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+  const formattedTime = time.toLocaleTimeString("en-US", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
     hour12: true,
   });
 
-  const formattedDate = time.toLocaleDateString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
+  const formattedDate = time.toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   });
 
   return (
     <header className="glass navbar">
       <div className="navbar-inner">
-        
         {/* Left: Hamburger + Brand */}
         <div className="navbar-left">
           <button
@@ -40,23 +46,21 @@ export const Navbar = ({ onOpenKiosk, onToggleSidebar }) => {
           >
             <Menu size={22} />
           </button>
-          <div
-            className="navbar-logo"
-          >
-            <ShieldCheck size={24} color="#fff" />
+          <div className="navbar-logo">
+            {owner?.organizationLogo ? (
+              <img src={owner.organizationLogo} alt="Organization logo" />
+            ) : (
+              <ShieldCheck size={24} color="#fff" />
+            )}
           </div>
           <div>
             <div className="navbar-brand-row">
-              <span className="navbar-brand-name">
-                BioTrack
+              <span
+                className="navbar-brand-name"
+                style={{ fontSize: "1.25rem" }}
+              >
+                {owner?.businessName || "InOut"}
               </span>
-              <span className="badge badge-biometric navbar-badge-hide-mobile">
-                Dual-Biometric
-              </span>
-            </div>
-            <div className="navbar-business-name">
-              <Building size={12} />
-              <span>{owner?.businessName || 'Business Enterprise'}</span>
             </div>
           </div>
         </div>
@@ -65,9 +69,11 @@ export const Navbar = ({ onOpenKiosk, onToggleSidebar }) => {
         <div className="navbar-clock glass-card">
           <div className="navbar-clock-time">
             <Clock size={15} />
-            <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{formattedTime}</span>
+            <span style={{ fontFamily: "JetBrains Mono, monospace" }}>
+              {formattedTime}
+            </span>
           </div>
-          <span style={{ color: 'var(--border-light)' }}>|</span>
+          <span style={{ color: "var(--border-light)" }}>|</span>
           <span className="navbar-clock-date">{formattedDate}</span>
         </div>
 
@@ -85,27 +91,33 @@ export const Navbar = ({ onOpenKiosk, onToggleSidebar }) => {
 
           <div className="navbar-user">
             <div className="navbar-avatar">
-              {isStaff ? 'S' : owner?.name ? owner.name.charAt(0) : 'A'}
+              {isStaff ? "S" : owner?.name ? owner.name.charAt(0) : "A"}
             </div>
             <div className="navbar-user-info">
               <span className="navbar-user-name">
-                {isStaff ? 'Staff Kiosk' : owner?.name || 'Administrator'}
+                {isStaff ? "Staff Kiosk" : owner?.name || "Administrator"}
               </span>
-              <span className="navbar-user-role" style={{ color: isStaff ? '#a7f3d0' : '#93c5fd' }}>
-                {isStaff ? 'Staff Mode (Kiosk Only)' : 'Administrator'}
+              <span
+                className="navbar-user-role"
+                style={{ color: isStaff ? "#a7f3d0" : "#93c5fd" }}
+              >
+                {isStaff ? "Staff Mode (Kiosk Only)" : "Administrator"}
               </span>
             </div>
             <button
               onClick={logout}
               className="btn btn-secondary"
               title="Logout / Switch Portal"
-              style={{ padding: '0.4rem', borderRadius: '8px', color: 'var(--text-muted)' }}
+              style={{
+                padding: "0.4rem",
+                borderRadius: "8px",
+                color: "var(--text-muted)",
+              }}
             >
               <LogOut size={16} />
             </button>
           </div>
         </div>
-
       </div>
     </header>
   );

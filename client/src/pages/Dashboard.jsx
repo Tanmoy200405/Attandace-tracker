@@ -1,32 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
-import { StatCard } from '../components/StatCard';
-import { ManualAttendanceModal } from '../components/ManualAttendanceModal';
-import { StaffDetailModal } from '../components/StaffDetailModal';
+import React, { useState, useEffect } from "react";
+import { api } from "../services/api";
+import { ManualAttendanceModal } from "../components/ManualAttendanceModal";
+import { StaffDetailModal } from "../components/StaffDetailModal";
 import {
   Users,
   CheckCircle2,
   Clock,
-  AlertCircle,
   CalendarDays,
   Camera,
-  ChevronRight,
-  TrendingUp,
-  ScanFace,
-  Fingerprint,
-} from 'lucide-react';
+  Search,
+  UserPlus,
+} from "lucide-react";
 
 export const Dashboard = ({ setTab }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [detailStaffId, setDetailStaffId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = new Date().toISOString().split("T")[0];
 
   // Format date as DD/MM/YYYY (Indian standard)
   const formatIndianDate = (dateStr) => {
-    const [y, m, d] = dateStr.split('-');
+    const [y, m, d] = dateStr.split("-");
     return `${d}/${m}/${y}`;
   };
 
@@ -37,7 +34,7 @@ export const Dashboard = ({ setTab }) => {
         setData(res);
       }
     } catch (err) {
-      console.error('Error fetching dashboard data:', err);
+      console.error("Error fetching dashboard data:", err);
     } finally {
       setLoading(false);
     }
@@ -50,211 +47,139 @@ export const Dashboard = ({ setTab }) => {
     return () => clearInterval(interval);
   }, []);
 
-  const summary = data?.summary || {
-    totalStaff: 0,
-    present: 0,
-    late: 0,
-    halfDay: 0,
-    absent: 0,
-    leave: 0,
-    unmarked: 0,
-    attendanceRate: 0,
-  };
-
   const roster = data?.todayRoster || [];
+  const totalEmployees = data?.summary?.totalStaff ?? roster.length;
+  const totalIn = roster.filter((row) => row.checkIn).length;
+  const totalOut = roster.filter((row) => row.checkOut).length;
+  const lateCount = roster.filter((row) => row.status === "Late").length;
+  const notYetIn = roster.filter((row) => !row.checkIn).length;
+  const filteredRoster = roster.filter((row) => {
+    const search = searchTerm.trim().toLowerCase();
+    if (!search) return true;
+    return `${row.staff.name} ${row.staff.employeeId}`
+      .toLowerCase()
+      .includes(search);
+  });
+
+  const summaryCards = [
+    { label: "All Emp", value: totalEmployees, color: "#2563eb", icon: Users },
+    { label: "Total In", value: totalIn, color: "#3b82f6", icon: CheckCircle2 },
+    { label: "Total Out", value: totalOut, color: "#ef4444", icon: Clock },
+    { label: "Late", value: lateCount, color: "#f59e0b", icon: Clock },
+    { label: "Not Yet In", value: notYetIn, color: "#8b5cf6", icon: Users },
+  ];
 
   return (
-    <div className="page-wrapper">
-      
-      {/* Top Banner & Header */}
-      <div className="page-header">
+    <div className="page-wrapper dashboard-page">
+      <div className="dashboard-topbar">
         <div>
-          <h1 className="page-title">Attendance Overview</h1>
+          <h1 className="page-title">Employee Summary</h1>
           <p className="page-subtitle">
-            Live staff presence, biometric verifications, and today's roster
+            Live attendance for {formatIndianDate(todayStr)}
           </p>
         </div>
+        <button onClick={() => setTab("kiosk")} className="btn btn-kiosk">
+          <Camera size={17} />
+          <span>Open Kiosk</span>
+        </button>
+      </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button onClick={() => setTab('kiosk')} className="btn btn-kiosk">
-            <Camera size={18} />
-            <span>Open Attendance Kiosk</span>
-          </button>
+      <div className="dashboard-summary-grid">
+        {summaryCards.map(({ label, value, color, icon: Icon }) => (
+          <div className="dashboard-summary-card" key={label}>
+            <Icon size={17} color={color} />
+            <strong style={{ color }}>{loading ? "..." : value}</strong>
+            <span>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="dashboard-search-row">
+        <div className="dashboard-search">
+          <Search size={20} />
+          <input
+            type="search"
+            placeholder="Search by name or code"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
+        <button
+          type="button"
+          className="dashboard-date-button"
+          onClick={() => setTab("attendance")}
+          title="Open attendance calendar"
+        >
+          <CalendarDays size={21} />
+        </button>
       </div>
 
-      {/* KPI Stats Row */}
-      <div className="stat-grid" style={{ marginBottom: '2rem' }}>
-        <StatCard
-          title="Total Staff"
-          value={summary.totalStaff}
-          subtext="Active employees registered"
-          icon={Users}
-          color="#cccccc"
-        />
-        <StatCard
-          title="Present Today"
-          value={summary.present}
-          subtext="Clocked in punctually"
-          icon={CheckCircle2}
-          color="#ffffff"
-          trend="+ On Time"
-        />
-        <StatCard
-          title="Late Arrivals"
-          value={summary.late}
-          subtext="After scheduled shift start"
-          icon={Clock}
-          color="#aaaaaa"
-        />
-        <StatCard
-          title="Unmarked / Absent"
-          value={summary.unmarked + summary.absent}
-          subtext="Yet to verify biometrics"
-          icon={AlertCircle}
-          color="#888888"
-        />
-        <StatCard
-          title="Attendance Rate"
-          value={`${summary.attendanceRate}%`}
-          subtext="Present & Late vs Total"
-          icon={TrendingUp}
-          color="#dddddd"
-        />
+      <div className="dashboard-section-heading">
+        <h2>Today</h2>
+        <button
+          type="button"
+          className="btn btn-secondary dashboard-add-button"
+          onClick={() => setTab("staff")}
+        >
+          <UserPlus size={16} /> Add Employee
+        </button>
       </div>
 
-      {/* Main Grid: Today's Live Roster & Quick Actions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }}>
-        
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-            <div>
-              <h3 style={{ fontSize: '1.2rem', margin: 0 }}>Today's Staff Roster</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>
-                Real-time check-in records for {formatIndianDate(todayStr)}
-              </p>
+      <div className="dashboard-roster">
+        {loading ? (
+          <div className="dashboard-empty">
+            Loading today&apos;s attendance...
+          </div>
+        ) : filteredRoster.length === 0 ? (
+          <div className="dashboard-empty">No employees match this search.</div>
+        ) : (
+          filteredRoster.map((row) => (
+            <div className="dashboard-staff-row" key={row.staff._id}>
+              <button
+                type="button"
+                className="dashboard-staff-main"
+                onClick={() => setDetailStaffId(row.staff._id)}
+              >
+                <span
+                  className="dashboard-avatar"
+                  style={{ background: row.staff.avatarColor || "#2563eb" }}
+                >
+                  {row.staff.name.charAt(0)}
+                </span>
+                <span className="dashboard-staff-copy">
+                  <strong>{row.staff.name}</strong>
+                  <small>EMP Code: {row.staff.employeeId}</small>
+                </span>
+              </button>
+              <div className="dashboard-staff-status">
+                <span
+                  className={`badge badge-${row.status.toLowerCase().replace(" ", "")}`}
+                >
+                  {row.status}
+                </span>
+                <small>
+                  {row.checkIn ? `In ${row.checkIn}` : "Not yet in"}
+                </small>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary dashboard-override-button"
+                onClick={() => setSelectedItem(row)}
+              >
+                Manage
+              </button>
             </div>
-
-            <button onClick={() => setTab('attendance')} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}>
-              <span>View Full Calendar Logs</span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
-
-          <div className="table-container">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Staff Member</th>
-                  <th>Status</th>
-                  <th>Check-In</th>
-                  <th className="hide-on-mobile">Check-Out</th>
-                  <th className="hide-on-mobile">Verification</th>
-                  <th className="hide-on-mobile">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
-                      Loading today's attendance...
-                    </td>
-                  </tr>
-                ) : roster.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
-                      No staff members registered. Add staff members in Staff Directory.
-                    </td>
-                  </tr>
-                ) : (
-                  roster.map((row) => (
-                    <tr key={row.staff._id}>
-                      <td>
-                        <div
-                          style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}
-                          onClick={() => setDetailStaffId(row.staff._id)}
-                        >
-                          <div
-                            style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '10px',
-                              background: row.staff.avatarColor || '#4f46e5',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#fff',
-                              fontWeight: 700,
-                              fontSize: '0.85rem',
-                              flexShrink: 0,
-                            }}
-                          >
-                            {row.staff.name.charAt(0)}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 600, color: '#fff' }}>{row.staff.name}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                              {row.staff.employeeId}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-
-
-                      <td>
-                        <span className={`badge badge-${row.status.toLowerCase().replace(' ', '')}`}>
-                          {row.status}
-                        </span>
-                      </td>
-
-                      <td style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.85rem' }}>
-                        {row.checkIn || '—'}
-                      </td>
-
-                      <td className="hide-on-mobile" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.85rem' }}>
-                        {row.checkOut || '—'}
-                      </td>
-
-                      <td className="hide-on-mobile">
-                        {row.verificationMethod === 'biometric_dual' ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <span className="badge badge-biometric" title="Face & Fingerprint Verified">
-                              <ScanFace size={13} />
-                              <Fingerprint size={13} />
-                              <span>Dual Biometric</span>
-                            </span>
-                            {row.confidenceScore && (
-                              <span style={{ fontSize: '0.7rem', color: '#22d3ee', fontFamily: 'JetBrains Mono, monospace' }}>
-                                {row.confidenceScore}%
-                              </span>
-                            )}
-                          </div>
-                        ) : row.verificationMethod === 'manual_override' ? (
-                          <span className="badge badge-unmarked">Manual Override</span>
-                        ) : (
-                          <span style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>Pending Kiosk</span>
-                        )}
-                      </td>
-
-                      <td className="hide-on-mobile">
-                        <button
-                          onClick={() => setSelectedItem(row)}
-                          className="btn btn-secondary"
-                          style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }}
-                        >
-                          Override
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
+          ))
+        )}
       </div>
+
+      <button
+        type="button"
+        className="dashboard-dashed-add"
+        onClick={() => setTab("staff")}
+      >
+        <UserPlus size={18} /> Add Employee
+      </button>
 
       {/* Manual Override Modal */}
       {selectedItem && (
@@ -275,7 +200,6 @@ export const Dashboard = ({ setTab }) => {
           onClose={() => setDetailStaffId(null)}
         />
       )}
-
     </div>
   );
 };

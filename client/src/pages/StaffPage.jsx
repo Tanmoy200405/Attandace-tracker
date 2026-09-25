@@ -179,7 +179,7 @@ export const StaffPage = () => {
                     <div>
                       <h3
                         onClick={() => setDetailStaffId(staff._id)}
-                        style={{ fontSize: '1.05rem', margin: 0, color: '#fff', cursor: 'pointer' }}
+                        style={{ fontSize: '1.05rem', margin: 0, color: '#1f2937', cursor: 'pointer' }}
                         title="View attendance history"
                       >
                         {staff.name}
@@ -224,10 +224,10 @@ export const StaffPage = () => {
                 {/* Biometrics Setup Box */}
                 <div
                   style={{
-                    background: 'rgba(15, 23, 42, 0.6)',
+                    background: '#f9fafb',
                     borderRadius: 'var(--radius-md)',
                     padding: '0.85rem',
-                    border: '1px solid var(--border)',
+                    border: '1px solid #e5e7eb',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '0.65rem',

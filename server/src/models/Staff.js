@@ -1,6 +1,12 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const staffSchema = new mongoose.Schema({
+  ownerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Owner",
+    required: true,
+    index: true,
+  },
   name: {
     type: String,
     required: true,
@@ -9,34 +15,33 @@ const staffSchema = new mongoose.Schema({
   employeeId: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
   },
   email: {
     type: String,
     trim: true,
     lowercase: true,
-    default: '',
+    default: "",
   },
   phone: {
     type: String,
     trim: true,
-    default: '',
+    default: "",
   },
   department: {
     type: String,
     required: true,
-    default: 'General',
+    default: "General",
   },
   role: {
     type: String,
     required: true,
-    default: 'Staff Member',
+    default: "Staff Member",
   },
   status: {
     type: String,
-    enum: ['Active', 'Inactive'],
-    default: 'Active',
+    enum: ["Active", "Inactive"],
+    default: "Active",
   },
   dateOfJoining: {
     type: Date,
@@ -44,12 +49,20 @@ const staffSchema = new mongoose.Schema({
   },
   avatarColor: {
     type: String,
-    default: '#4F46E5',
+    default: "#4F46E5",
   },
   weeklyOff: {
     type: String,
-    enum: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-    default: 'Sunday',
+    enum: [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ],
+    default: "Sunday",
   },
   monthlySalary: {
     type: Number,
@@ -57,11 +70,11 @@ const staffSchema = new mongoose.Schema({
   },
   expectedCheckIn: {
     type: String,
-    default: '09:00 AM',
+    default: "09:00 AM",
   },
   expectedCheckOut: {
     type: String,
-    default: '05:00 PM',
+    default: "05:00 PM",
   },
   biometrics: {
     faceEnrolled: {
@@ -70,7 +83,7 @@ const staffSchema = new mongoose.Schema({
     },
     facePhoto: {
       type: String, // base64 data URL
-      default: '',
+      default: "",
     },
     faceDescriptor: {
       type: [Number], // feature vector
@@ -82,11 +95,11 @@ const staffSchema = new mongoose.Schema({
     },
     fingerprintCredentialId: {
       type: String,
-      default: '',
+      default: "",
     },
     fingerprintPublicKey: {
       type: String,
-      default: '',
+      default: "",
     },
     enrolledAt: {
       type: Date,
@@ -98,4 +111,6 @@ const staffSchema = new mongoose.Schema({
   },
 });
 
-export default mongoose.model('Staff', staffSchema);
+staffSchema.index({ ownerId: 1, employeeId: 1 }, { unique: true });
+
+export default mongoose.model("Staff", staffSchema);

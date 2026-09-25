@@ -1,13 +1,13 @@
-import Attendance from '../models/Attendance.js';
-import Staff from '../models/Staff.js';
-import Owner from '../models/Owner.js';
-import { uploadBase64ToCloudinary } from '../config/cloudinary.js';
+import Attendance from "../models/Attendance.js";
+import Staff from "../models/Staff.js";
+import Owner from "../models/Owner.js";
+import { uploadBase64ToCloudinary } from "../config/cloudinary.js";
 
 const formatTime = (date = new Date()) => {
-  return date.toLocaleTimeString('en-US', {
-    timeZone: 'Asia/Kolkata',
-    hour: '2-digit',
-    minute: '2-digit',
+  return date.toLocaleTimeString("en-US", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
     hour12: true,
   });
 };
@@ -16,10 +16,10 @@ const formatTime = (date = new Date()) => {
 const calculateHours = (checkInStr, checkOutStr) => {
   if (!checkInStr || !checkOutStr) return 0;
   const parseTime = (str) => {
-    const [time, modifier] = str.split(' ');
-    let [hours, minutes] = time.split(':').map(Number);
-    if (modifier === 'PM' && hours < 12) hours += 12;
-    if (modifier === 'AM' && hours === 12) hours = 0;
+    const [time, modifier] = str.split(" ");
+    let [hours, minutes] = time.split(":").map(Number);
+    if (modifier === "PM" && hours < 12) hours += 12;
+    if (modifier === "AM" && hours === 12) hours = 0;
     return hours * 60 + minutes;
   };
   const diffMinutes = parseTime(checkOutStr) - parseTime(checkInStr);
@@ -33,39 +33,54 @@ export const getAttendanceByDate = async (req, res) => {
     const { date } = req.params; // format: YYYY-MM-DD
     const { department } = req.query;
 
-    const staffQuery = { status: 'Active' };
-    if (department && department !== 'All') {
+    const staffQuery = { ownerId: req.owner._id, status: "Active" };
+    if (department && department !== "All") {
       staffQuery.department = department;
     }
 
     const allStaff = await Staff.find(staffQuery).sort({ name: 1 });
-    const attendanceRecords = await Attendance.find({ date });
+    const attendanceRecords = await Attendance.find({
+      ownerId: req.owner._id,
+      date,
+    });
 
     const attendanceMap = new Map();
     attendanceRecords.forEach((rec) => {
       attendanceMap.set(rec.staffId.toString(), rec);
     });
 
-    const todayStr = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
-      .toISOString().split('T')[0];
+    const todayStr = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
+    )
+      .toISOString()
+      .split("T")[0];
 
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const [y, m, d] = date.split('-').map(Number);
+    const dayNames = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    const [y, m, d] = date.split("-").map(Number);
     const dateObj = new Date(y, m - 1, d);
     const dayOfWeek = dayNames[dateObj.getDay()];
 
     // Merge staff with their attendance record & auto-mark Absent on working days
     const mergedList = allStaff.map((staff) => {
       const record = attendanceMap.get(staff._id.toString());
-      const isWeeklyOff = (staff.weeklyOff || 'Sunday').toLowerCase() === dayOfWeek.toLowerCase();
+      const isWeeklyOff =
+        (staff.weeklyOff || "Sunday").toLowerCase() === dayOfWeek.toLowerCase();
 
-      let computedStatus = 'Unmarked';
+      let computedStatus = "Unmarked";
       if (record) {
         computedStatus = record.status;
       } else if (isWeeklyOff) {
-        computedStatus = 'Weekly Off';
+        computedStatus = "Weekly Off";
       } else if (date <= todayStr) {
-        computedStatus = 'Absent';
+        computedStatus = "Absent";
       }
 
       return {
@@ -76,28 +91,37 @@ export const getAttendanceByDate = async (req, res) => {
         checkOut: record ? record.checkOut : null,
         workHours: record ? record.workHours : 0,
         overtimeHours: record ? record.overtimeHours || 0 : 0,
-        verificationMethod: record ? record.verificationMethod : (isWeeklyOff ? 'scheduled_off' : 'unmarked'),
+        verificationMethod: record
+          ? record.verificationMethod
+          : isWeeklyOff
+            ? "scheduled_off"
+            : "unmarked",
         snapshotUrl: record ? record.snapshotUrl : null,
         confidenceScore: record ? record.confidenceScore : null,
-        notes: record ? record.notes : (computedStatus === 'Absent' ? 'Auto-marked Absent (No biometric clock-in)' : ''),
+        notes: record
+          ? record.notes
+          : computedStatus === "Absent"
+            ? "Auto-marked Absent (No biometric clock-in)"
+            : "",
       };
     });
 
     // Compute summary stats for the date
     const summary = {
       totalStaff: allStaff.length,
-      present: mergedList.filter((s) => s.status === 'Present').length,
-      late: mergedList.filter((s) => s.status === 'Late').length,
-      halfDay: mergedList.filter((s) => s.status === 'Half Day').length,
-      absent: mergedList.filter((s) => s.status === 'Absent').length,
-      leave: mergedList.filter((s) => s.status === 'Leave').length,
-      unmarked: mergedList.filter((s) => s.status === 'Unmarked').length,
+      present: mergedList.filter((s) => s.status === "Present").length,
+      late: mergedList.filter((s) => s.status === "Late").length,
+      halfDay: mergedList.filter((s) => s.status === "Half Day").length,
+      absent: mergedList.filter((s) => s.status === "Absent").length,
+      leave: mergedList.filter((s) => s.status === "Leave").length,
+      unmarked: mergedList.filter((s) => s.status === "Unmarked").length,
     };
 
     summary.presentTotal = summary.present + summary.late + summary.halfDay;
-    summary.attendanceRate = summary.totalStaff > 0
-      ? Math.round((summary.presentTotal / summary.totalStaff) * 100)
-      : 0;
+    summary.attendanceRate =
+      summary.totalStaff > 0
+        ? Math.round((summary.presentTotal / summary.totalStaff) * 100)
+        : 0;
 
     res.json({
       success: true,
@@ -114,7 +138,10 @@ export const getAttendanceByDate = async (req, res) => {
 // @route   GET /api/attendance/summary/30days
 export const get30DaySummary = async (req, res) => {
   try {
-    const allStaff = await Staff.find({ status: 'Active' });
+    const allStaff = await Staff.find({
+      ownerId: req.owner._id,
+      status: "Active",
+    });
     const totalStaff = allStaff.length;
 
     // Build last-30-days date range
@@ -123,58 +150,68 @@ export const get30DaySummary = async (req, res) => {
     for (let i = 29; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
-      dates.push(d.toISOString().split('T')[0]);
+      dates.push(d.toISOString().split("T")[0]);
     }
 
     // Fetch all attendance records for the last 30 days
-    const records = await Attendance.find({ date: { $in: dates } });
+    const records = await Attendance.find({
+      ownerId: req.owner._id,
+      date: { $in: dates },
+    });
 
     // Aggregate stats across all 30 days
-    let present = 0, late = 0, halfDay = 0, absent = 0, leave = 0, unmarked = 0;
+    let present = 0,
+      late = 0,
+      halfDay = 0,
+      absent = 0,
+      leave = 0,
+      unmarked = 0;
     let totalWorkHours = 0;
 
     records.forEach((r) => {
-      if (r.status === 'Present') present++;
-      else if (r.status === 'Late') late++;
-      else if (r.status === 'Half Day') halfDay++;
-      else if (r.status === 'Absent') absent++;
-      else if (r.status === 'Leave') leave++;
+      if (r.status === "Present") present++;
+      else if (r.status === "Late") late++;
+      else if (r.status === "Half Day") halfDay++;
+      else if (r.status === "Absent") absent++;
+      else if (r.status === "Leave") leave++;
       totalWorkHours += r.workHours || 0;
     });
 
     // Possible working slots = totalStaff × 30 days
     const possibleSlots = totalStaff * 30;
     const presentTotal = present + late + halfDay;
-    const attendanceRate = possibleSlots > 0
-      ? Math.round((presentTotal / possibleSlots) * 100)
-      : 0;
+    const attendanceRate =
+      possibleSlots > 0 ? Math.round((presentTotal / possibleSlots) * 100) : 0;
 
     // Today's snapshot for the live roster
-    const todayStr = today.toISOString().split('T')[0];
-    const todayRecords = await Attendance.find({ date: todayStr });
+    const todayStr = today.toISOString().split("T")[0];
+    const todayRecords = await Attendance.find({
+      ownerId: req.owner._id,
+      date: todayStr,
+    });
     const todayMap = new Map();
     todayRecords.forEach((r) => todayMap.set(r.staffId.toString(), r));
     todayRecords.forEach((r) => {
-      if (r.status === 'Unmarked' || !r.status) unmarked++;
+      if (r.status === "Unmarked" || !r.status) unmarked++;
     });
 
     const roster = allStaff.map((staff) => {
       const record = todayMap.get(staff._id.toString());
       return {
         staff,
-        status: record ? record.status : 'Unmarked',
+        status: record ? record.status : "Unmarked",
         checkIn: record ? record.checkIn : null,
         checkOut: record ? record.checkOut : null,
         workHours: record ? record.workHours : 0,
         verificationMethod: record ? record.verificationMethod : null,
         confidenceScore: record ? record.confidenceScore : null,
-        notes: record ? record.notes : '',
+        notes: record ? record.notes : "",
       };
     });
 
     res.json({
       success: true,
-      period: '30 days',
+      period: "30 days",
       summary: {
         totalStaff,
         present,
@@ -197,15 +234,18 @@ export const get30DaySummary = async (req, res) => {
 const parseTimeToMinutes = (str) => {
   if (!str) return 540;
   const trimmed = str.trim();
-  if (trimmed.toUpperCase().includes('AM') || trimmed.toUpperCase().includes('PM')) {
+  if (
+    trimmed.toUpperCase().includes("AM") ||
+    trimmed.toUpperCase().includes("PM")
+  ) {
     const [timePart, modifierPart] = trimmed.split(/\s+/);
-    let [hours, minutes] = timePart.split(':').map(Number);
+    let [hours, minutes] = timePart.split(":").map(Number);
     const modifier = modifierPart.toUpperCase();
-    if (modifier === 'PM' && hours < 12) hours += 12;
-    if (modifier === 'AM' && hours === 12) hours = 0;
+    if (modifier === "PM" && hours < 12) hours += 12;
+    if (modifier === "AM" && hours === 12) hours = 0;
     return hours * 60 + (minutes || 0);
   } else {
-    const [hours, minutes] = trimmed.split(':').map(Number);
+    const [hours, minutes] = trimmed.split(":").map(Number);
     return (hours || 0) * 60 + (minutes || 0);
   }
 };
@@ -213,27 +253,39 @@ const parseTimeToMinutes = (str) => {
 const formatMinutesTo12Hr = (totalMin) => {
   let hours = Math.floor(totalMin / 60) % 24;
   const minutes = totalMin % 60;
-  const modifier = hours >= 12 ? 'PM' : 'AM';
+  const modifier = hours >= 12 ? "PM" : "AM";
   hours = hours % 12 || 12;
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${modifier}`;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${modifier}`;
 };
 
 // @desc    Biometric Verify & Mark Attendance (Face OR Fingerprint OR Dual)
 // @route   POST /api/attendance/biometric-verify
 export const biometricVerifyAndMark = async (req, res) => {
   try {
-    const { staffId, faceScore, fingerprintVerified, snapshotUrl, action, verificationMethod = 'face_only' } = req.body;
+    const {
+      staffId,
+      faceScore,
+      fingerprintVerified,
+      snapshotUrl,
+      action,
+      verificationMethod = "face_only",
+    } = req.body;
 
-    const staff = await Staff.findById(staffId);
+    const staff = await Staff.findOne({ _id: staffId, ownerId: req.owner._id });
     if (!staff) {
-      return res.status(404).json({ success: false, message: 'Staff member not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Staff member not found" });
     }
 
     let finalMethod = verificationMethod;
 
     // Validate based on user chosen verification method
-    if (finalMethod === 'fingerprint_only') {
-      if (!staff.biometrics?.fingerprintEnrolled || !staff.biometrics?.fingerprintCredentialId) {
+    if (finalMethod === "fingerprint_only") {
+      if (
+        !staff.biometrics?.fingerprintEnrolled ||
+        !staff.biometrics?.fingerprintCredentialId
+      ) {
         return res.status(400).json({
           success: false,
           message: `Staff member "${staff.name}" has not enrolled their fingerprint. Please enroll first.`,
@@ -242,17 +294,24 @@ export const biometricVerifyAndMark = async (req, res) => {
       if (!fingerprintVerified) {
         return res.status(400).json({
           success: false,
-          message: 'Fingerprint biometric verification failed. Attendance denied.',
+          message:
+            "Fingerprint biometric verification failed. Attendance denied.",
         });
       }
-    } else if (finalMethod === 'biometric_dual') {
-      if (!staff.biometrics?.faceEnrolled || !staff.biometrics?.faceDescriptor?.length) {
+    } else if (finalMethod === "biometric_dual") {
+      if (
+        !staff.biometrics?.faceEnrolled ||
+        !staff.biometrics?.faceDescriptor?.length
+      ) {
         return res.status(400).json({
           success: false,
           message: `Staff member "${staff.name}" has not enrolled their face biometrics. Please enroll first.`,
         });
       }
-      if (!staff.biometrics?.fingerprintEnrolled || !staff.biometrics?.fingerprintCredentialId) {
+      if (
+        !staff.biometrics?.fingerprintEnrolled ||
+        !staff.biometrics?.fingerprintCredentialId
+      ) {
         return res.status(400).json({
           success: false,
           message: `Staff member "${staff.name}" has not enrolled their fingerprint. Please enroll first.`,
@@ -267,13 +326,17 @@ export const biometricVerifyAndMark = async (req, res) => {
       if (!fingerprintVerified) {
         return res.status(400).json({
           success: false,
-          message: 'Fingerprint biometric verification failed. Attendance denied.',
+          message:
+            "Fingerprint biometric verification failed. Attendance denied.",
         });
       }
     } else {
       // Default: face_only
-      finalMethod = 'face_only';
-      if (!staff.biometrics?.faceEnrolled || !staff.biometrics?.faceDescriptor?.length) {
+      finalMethod = "face_only";
+      if (
+        !staff.biometrics?.faceEnrolled ||
+        !staff.biometrics?.faceDescriptor?.length
+      ) {
         return res.status(400).json({
           success: false,
           message: `Staff member "${staff.name}" has not enrolled their face biometrics. Please enroll first.`,
@@ -289,14 +352,17 @@ export const biometricVerifyAndMark = async (req, res) => {
 
     const now = new Date();
     // Use IST date, not UTC date (IST is UTC+5:30)
-    const today = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
-      .toISOString().split('T')[0];
+    const today = new Date(
+      now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
+    )
+      .toISOString()
+      .split("T")[0];
     const currentTimeStr = formatTime(now);
 
     // Get owner shift settings
-    const owner = await Owner.findOne();
-    const ownerShiftStart = owner?.shiftStart || '09:00';
-    const ownerShiftEnd = owner?.shiftEnd || '17:00';
+    const owner = await Owner.findById(req.owner._id);
+    const ownerShiftStart = owner?.shiftStart || "09:00";
+    const ownerShiftEnd = owner?.shiftEnd || "17:00";
     const graceMinutes = owner?.gracePeriodMinutes ?? 15;
 
     // Use staff expectedCheckIn / expectedCheckOut if set, else fallback to owner shift
@@ -308,39 +374,53 @@ export const biometricVerifyAndMark = async (req, res) => {
     const lateThresholdMin = shiftStartMin + graceMinutes;
 
     // Extract IST hours and minutes from current time
-    const istTimeStr = now.toLocaleString('en-US', {
-      timeZone: 'Asia/Kolkata',
-      hour: '2-digit',
-      minute: '2-digit',
+    const istTimeStr = now.toLocaleString("en-US", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
       hour12: false,
     });
-    const [istHours, istMinutes] = istTimeStr.split(':').map(Number);
+    const [istHours, istMinutes] = istTimeStr.split(":").map(Number);
     const currentTotalMin = istHours * 60 + istMinutes;
 
     const isLateArrival = currentTotalMin > lateThresholdMin;
     const lateMinutes = isLateArrival ? currentTotalMin - shiftStartMin : 0;
 
-    let record = await Attendance.findOne({ staffId: staff._id, date: today });
+    let record = await Attendance.findOne({
+      ownerId: req.owner._id,
+      staffId: staff._id,
+      date: today,
+    });
 
     // Determine action (check-in or check-out)
-    const targetAction = action || (record && record.checkIn && !record.checkOut ? 'check-out' : 'check-in');
+    const targetAction =
+      action ||
+      (record && record.checkIn && !record.checkOut ? "check-out" : "check-in");
 
     const formattedShiftStart = formatMinutesTo12Hr(shiftStartMin);
     const formattedShiftEnd = formatMinutesTo12Hr(shiftEndMin);
 
-    let finalSnapshotUrl = snapshotUrl || staff.biometrics?.facePhoto || '';
-    if (process.env.CLOUDINARY_CLOUD_NAME && snapshotUrl && !snapshotUrl.startsWith('http')) {
+    let finalSnapshotUrl = snapshotUrl || staff.biometrics?.facePhoto || "";
+    if (
+      process.env.CLOUDINARY_CLOUD_NAME &&
+      snapshotUrl &&
+      !snapshotUrl.startsWith("http")
+    ) {
       try {
-        finalSnapshotUrl = await uploadBase64ToCloudinary(snapshotUrl, 'attendance_snapshots');
+        finalSnapshotUrl = await uploadBase64ToCloudinary(
+          snapshotUrl,
+          "attendance_snapshots",
+        );
       } catch (err) {
-        console.error('Failed to upload snapshot to Cloudinary:', err.message);
+        console.error("Failed to upload snapshot to Cloudinary:", err.message);
       }
     }
 
     if (!record) {
       // New check-in
-      const initialStatus = isLateArrival ? 'Late' : 'Present';
+      const initialStatus = isLateArrival ? "Late" : "Present";
       record = await Attendance.create({
+        ownerId: req.owner._id,
         staffId: staff._id,
         date: today,
         status: initialStatus,
@@ -350,12 +430,12 @@ export const biometricVerifyAndMark = async (req, res) => {
         confidenceScore: faceScore || 98.4,
         notes: isLateArrival
           ? `Late arrival (${lateMinutes} mins after shift start ${formattedShiftStart})`
-          : 'Punctual biometric check-in',
+          : "Punctual biometric check-in",
       });
 
       return res.status(201).json({
         success: true,
-        action: 'check-in',
+        action: "check-in",
         isLate: isLateArrival,
         lateMinutes,
         graceMinutes,
@@ -371,7 +451,7 @@ export const biometricVerifyAndMark = async (req, res) => {
     }
 
     // Record already exists
-    if (targetAction === 'check-out') {
+    if (targetAction === "check-out") {
       record.checkOut = currentTimeStr;
       record.workHours = calculateHours(record.checkIn, currentTimeStr);
       if (finalSnapshotUrl) record.snapshotUrl = finalSnapshotUrl;
@@ -389,7 +469,7 @@ export const biometricVerifyAndMark = async (req, res) => {
 
       return res.json({
         success: true,
-        action: 'check-out',
+        action: "check-out",
         isOvertime,
         overtimeHours,
         workHours: record.workHours,
@@ -406,18 +486,18 @@ export const biometricVerifyAndMark = async (req, res) => {
     } else {
       // Re-clock in / update check-in
       record.checkIn = currentTimeStr;
-      record.status = isLateArrival ? 'Late' : 'Present';
+      record.status = isLateArrival ? "Late" : "Present";
       record.verificationMethod = finalMethod;
       if (finalSnapshotUrl) record.snapshotUrl = finalSnapshotUrl;
       record.notes = isLateArrival
         ? `Late arrival (${lateMinutes} mins after shift start ${formattedShiftStart})`
-        : 'Punctual biometric check-in';
+        : "Punctual biometric check-in";
       record.updatedAt = new Date();
       await record.save();
 
       return res.json({
         success: true,
-        action: 'check-in',
+        action: "check-in",
         isLate: isLateArrival,
         lateMinutes,
         graceMinutes,
@@ -442,14 +522,23 @@ export const manualMarkAttendance = async (req, res) => {
   try {
     const { staffId, date, status, checkIn, checkOut, notes } = req.body;
 
-    const staff = await Staff.findById(staffId);
+    const staff = await Staff.findOne({ _id: staffId, ownerId: req.owner._id });
     if (!staff) {
-      return res.status(404).json({ success: false, message: 'Staff member not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Staff member not found" });
     }
 
-    let record = await Attendance.findOne({ staffId, date });
+    let record = await Attendance.findOne({
+      ownerId: req.owner._id,
+      staffId,
+      date,
+    });
 
-    const workHours = (checkIn && checkOut) ? calculateHours(checkIn, checkOut) : (record?.workHours || 0);
+    const workHours =
+      checkIn && checkOut
+        ? calculateHours(checkIn, checkOut)
+        : record?.workHours || 0;
 
     if (record) {
       record.status = status || record.status;
@@ -458,21 +547,22 @@ export const manualMarkAttendance = async (req, res) => {
       record.workHours = workHours;
       if (notes !== undefined) record.notes = notes;
       record.isOverridden = true;
-      record.overriddenBy = req.owner?.name || 'Owner';
+      record.overriddenBy = req.owner?.name || "Owner";
       record.updatedAt = new Date();
       await record.save();
     } else {
       record = await Attendance.create({
+        ownerId: req.owner._id,
         staffId,
         date,
-        status: status || 'Present',
-        checkIn: checkIn || (status === 'Present' ? '09:00 AM' : null),
-        checkOut: checkOut || (status === 'Present' ? '05:00 PM' : null),
-        workHours: workHours || (status === 'Present' ? 8 : 0),
-        verificationMethod: 'manual_override',
-        notes: notes || 'Manually logged by business owner',
+        status: status || "Present",
+        checkIn: checkIn || (status === "Present" ? "09:00 AM" : null),
+        checkOut: checkOut || (status === "Present" ? "05:00 PM" : null),
+        workHours: workHours || (status === "Present" ? 8 : 0),
+        verificationMethod: "manual_override",
+        notes: notes || "Manually logged by business owner",
         isOverridden: true,
-        overriddenBy: req.owner?.name || 'Owner',
+        overriddenBy: req.owner?.name || "Owner",
       });
     }
 
@@ -491,31 +581,37 @@ export const manualMarkAttendance = async (req, res) => {
 export const bulkMarkAttendance = async (req, res) => {
   try {
     const { date, status, department } = req.body;
-    const targetStatus = status || 'Present';
+    const targetStatus = status || "Present";
 
-    const staffQuery = { status: 'Active' };
-    if (department && department !== 'All') {
+    const staffQuery = { ownerId: req.owner._id, status: "Active" };
+    if (department && department !== "All") {
       staffQuery.department = department;
     }
 
     const staffList = await Staff.find(staffQuery);
-    const existingRecords = await Attendance.find({ date });
-    const markedStaffIds = new Set(existingRecords.map((r) => r.staffId.toString()));
+    const existingRecords = await Attendance.find({
+      ownerId: req.owner._id,
+      date,
+    });
+    const markedStaffIds = new Set(
+      existingRecords.map((r) => r.staffId.toString()),
+    );
 
     const bulkOps = [];
     for (const staff of staffList) {
       if (!markedStaffIds.has(staff._id.toString())) {
         bulkOps.push({
+          ownerId: req.owner._id,
           staffId: staff._id,
           date,
           status: targetStatus,
-          checkIn: targetStatus === 'Present' ? '09:00 AM' : null,
-          checkOut: targetStatus === 'Present' ? '05:00 PM' : null,
-          workHours: targetStatus === 'Present' ? 8 : 0,
-          verificationMethod: 'manual_override',
+          checkIn: targetStatus === "Present" ? "09:00 AM" : null,
+          checkOut: targetStatus === "Present" ? "05:00 PM" : null,
+          workHours: targetStatus === "Present" ? 8 : 0,
+          verificationMethod: "manual_override",
           notes: `Bulk marked as ${targetStatus} by owner`,
           isOverridden: true,
-          overriddenBy: req.owner?.name || 'Owner',
+          overriddenBy: req.owner?.name || "Owner",
         });
       }
     }

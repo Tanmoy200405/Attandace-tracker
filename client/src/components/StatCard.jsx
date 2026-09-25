@@ -47,7 +47,7 @@ export const StatCard = ({ title, value, subtext, icon: Icon, color = '#4f46e5',
       </div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-        <span style={{ fontSize: '2.25rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.03em' }}>
+        <span style={{ fontSize: '2.25rem', fontWeight: 800, color: '#1f2937', letterSpacing: '-0.03em' }}>
           {value}
         </span>
         {trend && (

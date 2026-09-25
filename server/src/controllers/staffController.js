@@ -1,25 +1,26 @@
-import Staff from '../models/Staff.js';
-import Attendance from '../models/Attendance.js';
-import { uploadBase64ToCloudinary } from '../config/cloudinary.js';
+import Staff from "../models/Staff.js";
+import Attendance from "../models/Attendance.js";
+import { uploadBase64ToCloudinary } from "../config/cloudinary.js";
 
 // @desc    Get all staff members
 // @route   GET /api/staff
 export const getAllStaff = async (req, res) => {
   try {
+    const ownerId = req.owner._id;
     const { department, search, status } = req.query;
-    const query = {};
+    const query = { ownerId };
 
-    if (department && department !== 'All') {
+    if (department && department !== "All") {
       query.department = department;
     }
-    if (status && status !== 'All') {
+    if (status && status !== "All") {
       query.status = status;
     }
     if (search) {
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { employeeId: { $regex: search, $options: 'i' } },
-        { role: { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: "i" } },
+        { employeeId: { $regex: search, $options: "i" } },
+        { role: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -34,25 +35,46 @@ export const getAllStaff = async (req, res) => {
 // @route   GET /api/staff/:id
 export const getStaffById = async (req, res) => {
   try {
-    const staff = await Staff.findById(req.params.id);
+    const staff = await Staff.findOne({
+      _id: req.params.id,
+      ownerId: req.owner._id,
+    });
     if (!staff) {
-      return res.status(404).json({ success: false, message: 'Staff member not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Staff member not found" });
     }
 
     // Get last 30 attendance records
-    const history = await Attendance.find({ staffId: staff._id })
+    const history = await Attendance.find({
+      ownerId: req.owner._id,
+      staffId: staff._id,
+    })
       .sort({ date: -1 })
       .limit(30);
 
-    const totalLogged = await Attendance.countDocuments({ staffId: staff._id });
-    const presentCount = await Attendance.countDocuments({
+    const totalLogged = await Attendance.countDocuments({
+      ownerId: req.owner._id,
       staffId: staff._id,
-      status: { $in: ['Present', 'Late'] },
     });
-    const lateCount = await Attendance.countDocuments({ staffId: staff._id, status: 'Late' });
-    const absentCount = await Attendance.countDocuments({ staffId: staff._id, status: 'Absent' });
+    const presentCount = await Attendance.countDocuments({
+      ownerId: req.owner._id,
+      staffId: staff._id,
+      status: { $in: ["Present", "Late"] },
+    });
+    const lateCount = await Attendance.countDocuments({
+      ownerId: req.owner._id,
+      staffId: staff._id,
+      status: "Late",
+    });
+    const absentCount = await Attendance.countDocuments({
+      ownerId: req.owner._id,
+      staffId: staff._id,
+      status: "Absent",
+    });
 
-    const attendanceRate = totalLogged > 0 ? Math.round((presentCount / totalLogged) * 100) : 100;
+    const attendanceRate =
+      totalLogged > 0 ? Math.round((presentCount / totalLogged) * 100) : 100;
 
     res.json({
       success: true,
@@ -77,51 +99,80 @@ export const getStaffById = async (req, res) => {
 // @route   POST /api/staff
 export const createStaff = async (req, res) => {
   try {
-    const { name, employeeId, email, phone, department, role, dateOfJoining, avatarColor, weeklyOff, monthlySalary, expectedCheckIn, expectedCheckOut } = req.body;
+    const ownerId = req.owner._id;
+    const {
+      name,
+      employeeId,
+      email,
+      phone,
+      department,
+      role,
+      dateOfJoining,
+      avatarColor,
+      weeklyOff,
+      monthlySalary,
+      expectedCheckIn,
+      expectedCheckOut,
+    } = req.body;
 
     // Generate unique employee ID if not provided
     let empId = employeeId;
     if (!empId) {
       let maxNum = 0;
-      const allStaff = await Staff.find({}, { employeeId: 1 });
+      const allStaff = await Staff.find({ ownerId }, { employeeId: 1 });
       allStaff.forEach((s) => {
-        if (s.employeeId && s.employeeId.startsWith('EMP-')) {
-          const num = parseInt(s.employeeId.replace('EMP-', ''), 10);
+        if (s.employeeId && s.employeeId.startsWith("EMP-")) {
+          const num = parseInt(s.employeeId.replace("EMP-", ""), 10);
           if (!isNaN(num) && num > maxNum) {
             maxNum = num;
           }
         }
       });
-      empId = `EMP-${String(maxNum + 1).padStart(3, '0')}`;
+      empId = `EMP-${String(maxNum + 1).padStart(3, "0")}`;
 
       // Double check uniqueness in case of race condition or custom format
-      while (await Staff.exists({ employeeId: empId })) {
+      while (await Staff.exists({ ownerId, employeeId: empId })) {
         maxNum += 1;
-        empId = `EMP-${String(maxNum + 1).padStart(3, '0')}`;
+        empId = `EMP-${String(maxNum + 1).padStart(3, "0")}`;
       }
     } else {
-      const existingStaff = await Staff.findOne({ employeeId: empId });
+      const existingStaff = await Staff.findOne({ ownerId, employeeId: empId });
       if (existingStaff) {
-        return res.status(400).json({ success: false, message: `Staff with ID ${empId} already exists` });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: `Staff with ID ${empId} already exists`,
+          });
       }
     }
 
-    const colors = ['#4F46E5', '#059669', '#D97706', '#DC2626', '#7C3AED', '#2563EB', '#DB2777'];
-    const chosenColor = avatarColor || colors[Math.floor(Math.random() * colors.length)];
+    const colors = [
+      "#4F46E5",
+      "#059669",
+      "#D97706",
+      "#DC2626",
+      "#7C3AED",
+      "#2563EB",
+      "#DB2777",
+    ];
+    const chosenColor =
+      avatarColor || colors[Math.floor(Math.random() * colors.length)];
 
     const staff = await Staff.create({
+      ownerId,
       name,
       employeeId: empId,
-      email: email || '',
-      phone: phone || '',
-      department: department || 'Operations',
-      role: role || 'Staff Member',
+      email: email || "",
+      phone: phone || "",
+      department: department || "Operations",
+      role: role || "Staff Member",
       dateOfJoining: dateOfJoining || new Date(),
       avatarColor: chosenColor,
-      weeklyOff: weeklyOff || 'Sunday',
+      weeklyOff: weeklyOff || "Sunday",
       monthlySalary: Number(monthlySalary) || 30000,
-      expectedCheckIn: expectedCheckIn || '09:00 AM',
-      expectedCheckOut: expectedCheckOut || '05:00 PM',
+      expectedCheckIn: expectedCheckIn || "09:00 AM",
+      expectedCheckOut: expectedCheckOut || "05:00 PM",
     });
 
     res.status(201).json({ success: true, data: staff });
@@ -134,13 +185,19 @@ export const createStaff = async (req, res) => {
 // @route   PUT /api/staff/:id
 export const updateStaff = async (req, res) => {
   try {
-    const staff = await Staff.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const staff = await Staff.findOneAndUpdate(
+      { _id: req.params.id, ownerId: req.owner._id },
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
 
     if (!staff) {
-      return res.status(404).json({ success: false, message: 'Staff member not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Staff member not found" });
     }
 
     res.json({ success: true, data: staff });
@@ -153,15 +210,23 @@ export const updateStaff = async (req, res) => {
 // @route   DELETE /api/staff/:id
 export const deleteStaff = async (req, res) => {
   try {
-    const staff = await Staff.findByIdAndDelete(req.params.id);
+    const staff = await Staff.findOneAndDelete({
+      _id: req.params.id,
+      ownerId: req.owner._id,
+    });
     if (!staff) {
-      return res.status(404).json({ success: false, message: 'Staff member not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Staff member not found" });
     }
 
     // Also delete attendance history for this staff member
-    await Attendance.deleteMany({ staffId: staff._id });
+    await Attendance.deleteMany({ ownerId: req.owner._id, staffId: staff._id });
 
-    res.json({ success: true, message: 'Staff member and attendance records deleted' });
+    res.json({
+      success: true,
+      message: "Staff member and attendance records deleted",
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -173,17 +238,28 @@ export const enrollFace = async (req, res) => {
   try {
     const { facePhoto, faceDescriptor } = req.body;
     if (!facePhoto) {
-      return res.status(400).json({ success: false, message: 'Face photo snapshot is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Face photo snapshot is required" });
     }
 
-    const staff = await Staff.findById(req.params.id);
+    const staff = await Staff.findOne({
+      _id: req.params.id,
+      ownerId: req.owner._id,
+    });
     if (!staff) {
-      return res.status(404).json({ success: false, message: 'Staff member not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Staff member not found" });
     }
 
     let photoUrl = facePhoto;
-    if (process.env.CLOUDINARY_CLOUD_NAME && facePhoto && !facePhoto.startsWith('http')) {
-      photoUrl = await uploadBase64ToCloudinary(facePhoto, 'staff_faces');
+    if (
+      process.env.CLOUDINARY_CLOUD_NAME &&
+      facePhoto &&
+      !facePhoto.startsWith("http")
+    ) {
+      photoUrl = await uploadBase64ToCloudinary(facePhoto, "staff_faces");
     }
 
     staff.biometrics.faceEnrolled = true;
@@ -211,12 +287,22 @@ export const enrollFingerprint = async (req, res) => {
   try {
     const { credentialId, publicKey } = req.body;
     if (!credentialId) {
-      return res.status(400).json({ success: false, message: 'Fingerprint credential identifier is required' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Fingerprint credential identifier is required",
+        });
     }
 
-    const staff = await Staff.findById(req.params.id);
+    const staff = await Staff.findOne({
+      _id: req.params.id,
+      ownerId: req.owner._id,
+    });
     if (!staff) {
-      return res.status(404).json({ success: false, message: 'Staff member not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Staff member not found" });
     }
 
     staff.biometrics.fingerprintEnrolled = true;
@@ -242,17 +328,22 @@ export const enrollFingerprint = async (req, res) => {
 // @route   POST /api/staff/:id/clear-biometrics
 export const clearBiometrics = async (req, res) => {
   try {
-    const staff = await Staff.findById(req.params.id);
+    const staff = await Staff.findOne({
+      _id: req.params.id,
+      ownerId: req.owner._id,
+    });
     if (!staff) {
-      return res.status(404).json({ success: false, message: 'Staff member not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Staff member not found" });
     }
 
     staff.biometrics.faceEnrolled = false;
-    staff.biometrics.facePhoto = '';
+    staff.biometrics.facePhoto = "";
     staff.biometrics.faceDescriptor = [];
     staff.biometrics.fingerprintEnrolled = false;
-    staff.biometrics.fingerprintCredentialId = '';
-    staff.biometrics.fingerprintPublicKey = '';
+    staff.biometrics.fingerprintCredentialId = "";
+    staff.biometrics.fingerprintPublicKey = "";
 
     await staff.save();
 
@@ -271,12 +362,13 @@ export const clearBiometrics = async (req, res) => {
 export const getKioskEnrolledStaff = async (req, res) => {
   try {
     const enrolledStaff = await Staff.find({
-      status: 'Active',
+      ownerId: req.owner._id,
+      status: "Active",
       $or: [
-        { 'biometrics.faceEnrolled': true },
-        { 'biometrics.fingerprintEnrolled': true },
+        { "biometrics.faceEnrolled": true },
+        { "biometrics.fingerprintEnrolled": true },
       ],
-    }).select('name employeeId department role biometrics avatarColor');
+    }).select("name employeeId department role biometrics avatarColor");
 
     res.json({
       success: true,

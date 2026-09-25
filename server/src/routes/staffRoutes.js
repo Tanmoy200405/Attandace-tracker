@@ -1,4 +1,5 @@
-import express from 'express';
+import express from "express";
+import { protect } from "../middleware/authMiddleware.js";
 import {
   getAllStaff,
   getStaffById,
@@ -9,20 +10,22 @@ import {
   enrollFingerprint,
   clearBiometrics,
   getKioskEnrolledStaff,
-} from '../controllers/staffController.js';
+} from "../controllers/staffController.js";
 
 const router = express.Router();
 
-router.get('/', getAllStaff);
-router.get('/kiosk/enrolled', getKioskEnrolledStaff);
-router.get('/:id', getStaffById);
-router.post('/', createStaff);
-router.put('/:id', updateStaff);
-router.delete('/:id', deleteStaff);
+router.use(protect);
+
+router.get("/", getAllStaff);
+router.get("/kiosk/enrolled", getKioskEnrolledStaff);
+router.get("/:id", getStaffById);
+router.post("/", createStaff);
+router.put("/:id", updateStaff);
+router.delete("/:id", deleteStaff);
 
 // Biometric enrollment routes
-router.post('/:id/enroll-face', enrollFace);
-router.post('/:id/enroll-fingerprint', enrollFingerprint);
-router.post('/:id/clear-biometrics', clearBiometrics);
+router.post("/:id/enroll-face", enrollFace);
+router.post("/:id/enroll-fingerprint", enrollFingerprint);
+router.post("/:id/clear-biometrics", clearBiometrics);
 
 export default router;

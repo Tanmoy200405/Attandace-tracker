@@ -100,7 +100,7 @@ export const AttendancePage = () => {
             <input
               type="date"
               className="form-input"
-              style={{ padding: '0.5rem 0.75rem', fontWeight: 600, color: '#fff', cursor: 'pointer' }}
+              style={{ padding: '0.5rem 0.75rem', fontWeight: 600, color: '#1f2937', cursor: 'pointer' }}
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
             />
@@ -136,7 +136,7 @@ export const AttendancePage = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Selected Date</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>{formatIndianDate(selectedDate)}</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1f2937' }}>{formatIndianDate(selectedDate)}</div>
           </div>
           <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: '1.5rem' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Present Count</div>
@@ -197,7 +197,7 @@ export const AttendancePage = () => {
                         {row.staff.name.charAt(0)}
                       </div>
                       <div>
-                        <div style={{ fontWeight: 600, color: '#fff' }}>{row.staff.name}</div>
+                        <div style={{ fontWeight: 600, color: '#1f2937' }}>{row.staff.name}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
                           {row.staff.employeeId} • {row.staff.role}
                         </div>
@@ -320,8 +320,8 @@ export const AttendancePage = () => {
         <div className="modal-overlay" onClick={() => setPreviewSnapshot(null)}>
           <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center', padding: '1.5rem' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ fontSize: '1rem', margin: 0 }}>Face Audit Snapshot</h3>
-              <button onClick={() => setPreviewSnapshot(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
+              <h3 style={{ fontSize: '1rem', margin: 0, color: '#1f2937' }}>Face Audit Snapshot</h3>
+              <button onClick={() => setPreviewSnapshot(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 <X size={18} />
               </button>
             </div>
@@ -329,7 +329,7 @@ export const AttendancePage = () => {
               <img src={previewSnapshot.url} alt="Face snapshot" style={{ width: '100%', height: 'auto', display: 'block' }} />
             </div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-              Captured during check-in for <strong style={{ color: '#fff' }}>{previewSnapshot.name}</strong> at {previewSnapshot.time}.
+              Captured during check-in for <strong style={{ color: '#1f2937' }}>{previewSnapshot.name}</strong> at {previewSnapshot.time}.
             </p>
           </div>
         </div>
